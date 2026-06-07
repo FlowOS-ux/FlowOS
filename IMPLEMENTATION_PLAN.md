@@ -3,39 +3,42 @@
 > **Created:** 2026-06-07 · **Owner:** systems@novetum.com
 > **Source of truth:** [FLOWOS_PROJECT_STATUS.md](FLOWOS_PROJECT_STATUS.md)
 > **Scope:** Analysis, dependency check, and execution plan for the self-service MVP (Phase 2A).
-> No further implementation code will be written until this plan is approved.
+> **Status:** Approved; credential-free Phase 2A items implemented and committed (see below).
 
 ---
 
-## ⚠️ Current working-tree state (read first)
+## ✅ Current state (updated 2026-06-07)
 
-Several Phase 2A items were **already implemented this session** (uncommitted, on branch `master`,
-zero prior commit history). All changes are **typecheck-clean** (`tsc --noEmit` on backend + mobile)
-and the backend smoke suite passes **20/20**. They are awaiting your review/approval.
+Phase 2A's **credential-free items are implemented and committed** to a single monorepo on branch
+`main` (initial baseline commit `1cdac9f` + Forgot-Password commit `129c8e5`). All changes are
+**typecheck-clean** (`tsc --noEmit` on backend + mobile) and the backend smoke suite passes **20/20**.
+Commits are **local only — not yet pushed** to GitHub.
 
-| Item | State in working tree | Verified |
+| Item | State | Verified |
 |---|---|---|
-| Business Setup & Activation (screen + nav + dashboard entry) | **Implemented** | mobile `tsc` ✅ |
-| Join ACTIVE-business validation (backend guard) | **Implemented** | smoke 20/20 ✅ |
-| Real-time Notifications screen (`notification:new` + live badge) | **Implemented** | mobile `tsc` ✅ |
-| Real-time Dashboard updates (`dashboard:updated` + live badge) | **Implemented** | mobile `tsc` ✅ |
+| Business Setup & Activation (screen + nav + dashboard entry) | **Committed** | mobile `tsc` ✅ |
+| Join ACTIVE-business validation (backend guard) | **Committed** | smoke 20/20 ✅ |
+| Real-time Notifications screen (`notification:new` + live badge) | **Committed** | mobile `tsc` ✅ |
+| Real-time Dashboard updates (`dashboard:updated` + live badge) | **Committed** | mobile `tsc` ✅ |
+| Forgot-Password UI (request + reset) | **Committed** | mobile `tsc` ✅ |
+| Device-token registration on login | Not started | coupled to FCM client |
 | FCM Push | Not started | blocked (creds) |
-| Device-token registration on login | Not started | — |
-| Forgot-Password UI | Not started | — |
 
-**Files added/changed this session (for review):**
+**Files added/changed (committed):**
 - `mobile/src/screens/business/BusinessSetupScreen.tsx` *(new)*
+- `mobile/src/screens/auth/ForgotPasswordScreen.tsx` *(new)*
 - `mobile/src/realtime/useRealtimeEvents.ts` *(new)*
 - `mobile/src/realtime/socket.ts` *(business-room tracking + event-name exports)*
-- `mobile/src/navigation/RootNavigator.tsx`, `mobile/src/navigation/types.ts` *(register `BusinessSetup`)*
+- `mobile/src/navigation/RootNavigator.tsx`, `mobile/src/navigation/types.ts` *(register `BusinessSetup` + `ForgotPassword`)*
 - `mobile/src/screens/business/BusinessesScreen.tsx` *(status chip, setup CTA, dashboard sockets)*
 - `mobile/src/screens/shared/NotificationsScreen.tsx` *(socket-driven feed)*
+- `mobile/src/screens/auth/LoginScreen.tsx` *(Forgot-password link)*
+- `mobile/src/api/endpoints.ts` *(`resetPassword` wrapper)*
 - `mobile/src/api/types.ts` *(`BusinessHour` + `hours` on `Business`)*
 - `backend/src/modules/entries/entries.service.ts` *(join guard)*
 - `backend/scripts/smoke.ts` *(guard assertion → 20/20)*
 
-> **Decision needed:** keep these changes as the Phase 2A baseline, or revert and re-do under this plan.
-> The remainder of this document plans the work *as if from zero* and marks what is already done.
+> **Decision made:** kept the changes and committed them as the Phase 2A baseline on `main`.
 
 ---
 
@@ -44,12 +47,12 @@ and the backend smoke suite passes **20/20**. They are awaiting your review/appr
 | Area | Documented (status doc) | Working tree (this session) |
 |---|---|---|
 | Backend | ~85% | ~86% (join guard added) |
-| Frontend | ~45% | ~50% (Setup/Activation + real-time consumption) |
+| Frontend | ~45% | ~52% (Setup/Activation + real-time consumption + Forgot-Password) |
 | Database | ~95% | ~95% |
 | Real-time | backend done, client partial | **client now full** for queues, notifications, dashboard |
 | Notifications | ~40% (in-app ✅, push ❌) | ~45% (in-app real-time ✅, push ❌) |
 | Testing | ~20% | ~22% (one guard assertion added) |
-| **Overall MVP** | **~58%** | **~62%** |
+| **Overall MVP** | **~58%** | **~63%** |
 
 ---
 
@@ -106,8 +109,8 @@ Connection Error, plus device-token registration and env-based API base URL.
 2. **Join ACTIVE-business validation** — ✅ done (review + commit)
 3. **Real-time Notifications screen** — ✅ done (review + commit)
 4. **Real-time Dashboard updates** — ✅ done (review + commit)
-5. **Device-token registration on login** — unblocked; small, do next
-6. **Forgot-Password UI** — unblocked (email has console fallback); needs `resetPassword` wrapper + screen
+5. **Forgot-Password UI** — ✅ done + committed (SMTP delivery still pending)
+6. **Device-token registration on login** — unblocked REST-wise but only useful with the FCM client; do alongside FCM
 7. **FCM Push** — blocked on credentials; scaffold native + service wiring, finish on a real device once creds land
 8. **Email provider (SMTP)** — blocked on credentials; config-only once provided
 9. **Testing & Verification (unit + CI)** — parallel track, start anytime
@@ -125,8 +128,8 @@ remaining gaps are the two genuinely external dependencies (FCM creds, SMTP cred
 | Join ACTIVE validation | ~0.25 d | **DONE** |
 | Real-time Notifications screen | ~0.5 d | **DONE** |
 | Real-time Dashboard updates | ~0.5 d | **DONE** |
+| Forgot-Password UI | ~0.75 d | **DONE**; +0.5 d SMTP config still pending |
 | Device-token registration | ~0.5 d | wire `registerDevice` on login + settings respect |
-| Forgot-Password UI | ~0.75 d | screen + `resetPassword` wrapper; +0.5 d SMTP config |
 | FCM Push (client + activate) | ~2–3 d | native install, build config, on-device test |
 | Email provider config | ~0.25 d | once SMTP creds exist |
 | Test suite + CI (separate track) | ~3–4 d | Jest/Supertest + RN component + GH Actions |
@@ -201,13 +204,14 @@ gated on credentials.
 - **Note:** the real device *token* comes from FCM, so end-to-end value couples with §9.7. The
   REST wiring + platform string can be done now and verified against the backend.
 
-### 9.6 Forgot-Password UI — ⬜ TODO (unblocked; email needs SMTP)
+### 9.6 Forgot-Password UI — ✅ DONE (committed; email needs SMTP)
 - **API (verified):** backend `/auth/forgot-password` + `/auth/reset-password` both exist
-  ([auth.routes.ts](backend/src/modules/auth/auth.routes.ts)). Mobile has `forgotPassword` but
-  **no `resetPassword`** wrapper.
-- **Plan:** add `authApi.resetPassword(token, password)` wrapper; build `ForgotPasswordScreen`
-  (request) + reset step; link from `LoginScreen`; register in Auth stack. Email delivery falls back
-  to dev console until SMTP is configured.
+  ([auth.routes.ts](backend/src/modules/auth/auth.routes.ts)).
+- **Done:** added `authApi.resetPassword(token, password)` wrapper; built two-phase
+  `ForgotPasswordScreen` (request code → set new password); linked from `LoginScreen`; registered in
+  the Auth stack. Token form `"<userId>.<rawToken>"`, 1h expiry.
+- **Remaining:** email delivery uses the **dev console fallback** until an SMTP provider is configured
+  (config-only, no code change). Verify: mobile `tsc` ✅.
 
 ### 9.7 FCM Push — ⬜ TODO (BLOCKED on credentials + native install)
 - **State (verified):** backend `firebase-admin` installed + `FcmPushService` coded but disabled;
@@ -226,13 +230,13 @@ gated on credentials.
 
 ## 10. Phase 2A checklist
 
-- [x] **Business Setup & Activation** — *done in working tree (review + commit)*
+- [x] **Business Setup & Activation** — *committed (`1cdac9f`)*
 - [ ] **FCM Push Notifications** — *blocked: Firebase service account + `google-services.json` + native install*
-- [ ] **Device Token Registration** — *wrapper + endpoint exist; not wired to login*
-- [ ] **Forgot Password UI** — *backend routes exist; needs `resetPassword` wrapper + screen*
-- [x] **Real-time Notifications Screen** — *done in working tree (review + commit)*
-- [x] **Real-time Dashboard Updates** — *done in working tree (review + commit)*
-- [x] **Join ACTIVE Business Validation** — *done in working tree; smoke 20/20*
+- [ ] **Device Token Registration** — *wrapper + endpoint exist; not wired to login (couples with FCM)*
+- [x] **Forgot Password UI** — *committed (`129c8e5`); SMTP delivery still pending*
+- [x] **Real-time Notifications Screen** — *committed (`1cdac9f`)*
+- [x] **Real-time Dashboard Updates** — *committed (`1cdac9f`)*
+- [x] **Join ACTIVE Business Validation** — *committed (`1cdac9f`); smoke 20/20*
 - [~] **Testing & Verification** — *smoke 20/20 + socket 5/5 + tsc clean; unit/CI still pending*
 
 Legend: `[x]` done · `[~]` partial · `[ ]` not started.
@@ -241,9 +245,10 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started.
 
 ## 11. Open decisions for approval
 
-1. **Keep or revert** the working-tree Phase 2A changes (§⚠️). Recommended: **keep + commit** as the baseline.
-2. **Initial git commit** before further work? Recommended: **yes**.
-3. **Provide Firebase + SMTP credentials**, or defer FCM/email and proceed with device-token wiring + Forgot-Password UI (console email) first?
+1. ✅ **Resolved** — kept the Phase 2A changes and committed them as the baseline (branch `main`, `1cdac9f`).
+2. ✅ **Resolved** — initial commit done; Forgot-Password committed on top (`129c8e5`).
+3. **Provide Firebase + SMTP credentials?** — unblocks FCM push, device-token registration, and reset email.
 4. **Test/CI track** — start in parallel now, or after Phase 2A feature work?
+5. **Push to GitHub** (`SreelekhaAC/FlowOS`)? — commits are currently local only.
 
-> Awaiting approval before modifying any further code.
+> Plan and source-of-truth docs refreshed 2026-06-07 to match the committed state.
