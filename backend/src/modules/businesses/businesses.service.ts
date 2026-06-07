@@ -4,6 +4,9 @@
  */
 import type { FilterQuery } from 'mongoose';
 import { businessesRepository } from './businesses.repository';
+import { queuesRepository } from '../queues/queues.repository';
+import { entriesRepository } from '../entries/entries.repository';
+import { membershipsRepository } from '../memberships/memberships.repository';
 import { StaffMember, type BusinessDoc } from '../../models';
 import { assertBusinessRole } from '../../lib/businessAccess';
 import { NotFoundError } from '../../lib/errors';
@@ -68,6 +71,20 @@ export const businessesService = {
     const business = await businessesRepository.updateById(id, update);
     if (!business) throw new NotFoundError('Business not found');
     return toPublicBusiness(business);
+  },
+
+  /** Owner-only hard delete. Cascades to queues, their entries, and staff memberships. */
+  async remove(userId: string, role: Role, id: string) {
+    await assertBusinessRole(userId, id, 'OWNER', role);
+    const business = await businessesRepository.findById(id);
+    if (!business) throw new NotFoundError('Business not found');
+
+    await entriesRepository.deleteByBusinessId(id);
+    await queuesRepository.deleteByBusinessId(id);
+    await membershipsRepository.deleteByBusinessId(id);
+    await businessesRepository.deleteById(id);
+
+    return { id };
   },
 
   async listMine(ownerId: string) {

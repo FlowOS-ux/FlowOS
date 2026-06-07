@@ -31,4 +31,8 @@ export const membershipsRepository = {
   deleteById(id: string): Promise<unknown> {
     return StaffMember.deleteOne({ _id: id }).exec();
   },
+
+  deleteByBusinessId(businessId: string): Promise<unknown> {
+    return StaffMember.deleteMany({ businessId }).exec();
+  },
 };

@@ -38,5 +38,6 @@ router.patch(
   validate({ params: businessIdParam, body: updateBusinessSchema }),
   controller.update,
 );
+router.delete('/:id', authenticate, validate({ params: businessIdParam }), controller.remove);
 
 export default router;

@@ -15,18 +15,37 @@ import type { CustomerStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<CustomerStackParamList>;
 
+type Coords = { lat: number; lng: number };
+
+// Minimal geolocation shape (browser API on web; avoids depending on DOM lib types).
+type Geo = {
+  getCurrentPosition: (
+    success: (pos: { coords: { latitude: number; longitude: number } }) => void,
+    error?: (err: unknown) => void,
+    opts?: { enableHighAccuracy?: boolean; timeout?: number; maximumAge?: number },
+  ) => void;
+};
+
+const NEAR_RADIUS_KM = 50;
+
 export default function ExploreScreen() {
   const navigation = useNavigation<Nav>();
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [nearMe, setNearMe] = useState(false);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const [locating, setLocating] = useState(false);
 
-  const load = useCallback(async (search: string) => {
+  const load = useCallback(async (search: string, near: Coords | null) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await businessApi.explore({ search: search || undefined });
+      const res = await businessApi.explore({
+        search: search || undefined,
+        ...(near ? { lat: near.lat, lng: near.lng, radiusKm: NEAR_RADIUS_KM } : {}),
+      });
       setItems(res.items);
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -36,9 +55,35 @@ export default function ExploreScreen() {
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => load(query), 350);
+    const t = setTimeout(() => load(query, nearMe ? coords : null), 350);
     return () => clearTimeout(t);
-  }, [query, load]);
+  }, [query, nearMe, coords, load]);
+
+  const toggleNearMe = useCallback(() => {
+    if (nearMe) {
+      setNearMe(false);
+      setCoords(null);
+      return;
+    }
+    const geo = (globalThis as { navigator?: { geolocation?: Geo } }).navigator?.geolocation;
+    if (!geo) {
+      setError('Location is not available on this device.');
+      return;
+    }
+    setLocating(true);
+    geo.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setNearMe(true);
+        setLocating(false);
+      },
+      () => {
+        setError('Could not get your location. Allow location access and try again.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+    );
+  }, [nearMe]);
 
   return (
     <View style={styles.root}>
@@ -48,6 +93,17 @@ export default function ExploreScreen() {
         onChangeText={setQuery}
         style={styles.search}
       />
+      <View style={styles.filters}>
+        <Chip
+          icon="map-marker"
+          selected={nearMe}
+          showSelectedOverlay
+          disabled={locating}
+          onPress={toggleNearMe}
+        >
+          {locating ? 'Locating…' : nearMe ? `Near me (${NEAR_RADIUS_KM} km)` : 'Near me'}
+        </Chip>
+      </View>
       {loading ? (
         <ActivityIndicator style={styles.loader} color={theme.colors.primary} />
       ) : (
@@ -82,7 +138,8 @@ export default function ExploreScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
-  search: { margin: spacing.md },
+  search: { marginHorizontal: spacing.md, marginTop: spacing.md },
+  filters: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm },
   card: { backgroundColor: theme.colors.surface },
   chip: { marginRight: spacing.md, alignSelf: 'center' },

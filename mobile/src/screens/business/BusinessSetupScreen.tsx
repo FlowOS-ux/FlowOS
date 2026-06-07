@@ -15,6 +15,8 @@ import {
   Chip,
   Divider,
   Snackbar,
+  Dialog,
+  Portal,
 } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Screen from '../../components/Screen';
@@ -65,6 +67,8 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const suspended = business.status === 'SUSPENDED';
   const statusLabel = active ? 'ACTIVE' : suspended ? 'SUSPENDED' : 'DRAFT';
@@ -129,6 +133,22 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
       setError(apiErrorMessage(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onDelete = async () => {
+    setError(null);
+    setDeleting(true);
+    try {
+      await businessApi.remove(business.id);
+      setConfirmVisible(false);
+      // Dashboard refetches on focus and the business is gone.
+      navigation.goBack();
+    } catch (err) {
+      setConfirmVisible(false);
+      setError(apiErrorMessage(err));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -246,6 +266,44 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
         {suspended ? 'Save changes' : active ? 'Save & keep active' : 'Save & activate'}
       </Button>
 
+      <Divider style={styles.divider} />
+      <Button
+        mode="outlined"
+        icon="trash-can-outline"
+        textColor={theme.colors.error}
+        onPress={() => setConfirmVisible(true)}
+        style={styles.deleteBtn}
+      >
+        Delete business
+      </Button>
+      <Text variant="bodySmall" style={[styles.muted, styles.deleteNote]}>
+        Permanently removes this business, its queues, and staff access.
+      </Text>
+
+      <Portal>
+        <Dialog visible={confirmVisible} onDismiss={() => setConfirmVisible(false)}>
+          <Dialog.Title>Delete business?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              Permanently delete {business.name}, its queues, and staff access? This cannot be undone.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setConfirmVisible(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              onPress={onDelete}
+              loading={deleting}
+              disabled={deleting}
+              textColor={theme.colors.error}
+            >
+              Delete
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
       <Snackbar visible={success} onDismiss={() => setSuccess(false)} duration={900}>
         Business updated 🎉
       </Snackbar>
@@ -266,4 +324,6 @@ const styles = StyleSheet.create({
   timeInput: { flex: 1 },
   closedToggle: { alignItems: 'center' },
   save: { marginTop: spacing.sm },
+  deleteBtn: { marginTop: spacing.sm, borderColor: theme.colors.error },
+  deleteNote: { textAlign: 'center' },
 });

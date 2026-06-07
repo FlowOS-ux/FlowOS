@@ -101,3 +101,53 @@ describe('business activation & discoverability', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('delete business', () => {
+  it('lets the owner delete their business and removes it from Explore + /mine', async () => {
+    const token = await registerOwner();
+    const created = await ctx.agent
+      .post(`${API}/businesses`)
+      .set(bearer(token))
+      .send({ name: 'Temp Biz', category: 'OTHER' });
+    const id = created.body.business.id as string;
+    await ctx.agent.patch(`${API}/businesses/${id}`).set(bearer(token)).send({ status: 'ACTIVE' });
+    // A queue exists so the cascade is exercised.
+    await ctx.agent
+      .post(`${API}/businesses/${id}/queues`)
+      .set(bearer(token))
+      .send({ name: 'General', avgServiceSec: 120 });
+
+    const del = await ctx.agent.delete(`${API}/businesses/${id}`).set(bearer(token));
+    expect(del.status).toBe(200);
+
+    const mine = await ctx.agent.get(`${API}/businesses/mine`).set(bearer(token));
+    expect(mine.body.businesses.some((b: { id: string }) => b.id === id)).toBe(false);
+
+    const explore = await ctx.agent.get(`${API}/businesses`);
+    expect(explore.body.items.some((b: { id: string }) => b.id === id)).toBe(false);
+
+    // Cascade: the queue is gone too.
+    const queues = await ctx.agent.get(`${API}/businesses/${id}/queues`);
+    expect(queues.body.queues ?? []).toHaveLength(0);
+  });
+
+  it('blocks a non-owner from deleting', async () => {
+    const ownerToken = await registerOwner();
+    const created = await ctx.agent
+      .post(`${API}/businesses`)
+      .set(bearer(ownerToken))
+      .send({ name: 'Temp Biz', category: 'OTHER' });
+    const id = created.body.business.id as string;
+
+    const stranger = await ctx.agent.post(`${API}/auth/register`).send({
+      name: 'Stan Stranger',
+      email: 'stan2@flowos.test',
+      password: 'password123',
+      role: 'BUSINESS_OWNER',
+    });
+    const res = await ctx.agent
+      .delete(`${API}/businesses/${id}`)
+      .set(bearer(stranger.body.accessToken));
+    expect(res.status).toBe(403);
+  });
+});

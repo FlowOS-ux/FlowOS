@@ -38,8 +38,14 @@ export const userApi = {
 };
 
 export const businessApi = {
-  explore: (params: { search?: string; category?: string; page?: number }) =>
-    api.get<Paginated<Business>>('/businesses', { params }).then((r) => r.data),
+  explore: (params: {
+    search?: string;
+    category?: string;
+    page?: number;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
+  }) => api.get<Paginated<Business>>('/businesses', { params }).then((r) => r.data),
   get: (id: string) =>
     api.get<{ business: Business }>(`/businesses/${id}`).then((r) => r.data.business),
   mine: () => api.get<{ businesses: Business[] }>('/businesses/mine').then((r) => r.data.businesses),
@@ -53,6 +59,7 @@ export const businessApi = {
   }) => api.post<{ business: Business }>('/businesses', body).then((r) => r.data.business),
   update: (id: string, body: Record<string, unknown>) =>
     api.patch<{ business: Business }>(`/businesses/${id}`, body).then((r) => r.data.business),
+  remove: (id: string) => api.delete(`/businesses/${id}`).then((r) => r.data),
   queues: (businessId: string) =>
     api.get<{ queues: Queue[] }>(`/businesses/${businessId}/queues`).then((r) => r.data.queues),
   createQueue: (

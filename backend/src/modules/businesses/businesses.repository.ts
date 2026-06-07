@@ -18,6 +18,10 @@ export const businessesRepository = {
     return Business.findByIdAndUpdate(id, update, { new: true }).exec();
   },
 
+  deleteById(id: string): Promise<unknown> {
+    return Business.deleteOne({ _id: id }).exec();
+  },
+
   listOwnedBy(ownerId: string): Promise<BusinessDoc[]> {
     return Business.find({ ownerId }).sort({ createdAt: -1 }).exec();
   },

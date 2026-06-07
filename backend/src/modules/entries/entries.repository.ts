@@ -70,4 +70,8 @@ export const entriesRepository = {
   markNearNotified(id: string): Promise<unknown> {
     return QueueEntry.findByIdAndUpdate(id, { nearNotified: true }).exec();
   },
+
+  deleteByBusinessId(businessId: string): Promise<unknown> {
+    return QueueEntry.deleteMany({ businessId }).exec();
+  },
 };

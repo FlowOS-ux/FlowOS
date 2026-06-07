@@ -31,6 +31,11 @@ export async function update(req: Request, res: Response): Promise<void> {
   res.json({ business });
 }
 
+export async function remove(req: Request, res: Response): Promise<void> {
+  await businessesService.remove(req.user!.id, req.user!.role, String(req.params.id));
+  res.json({ success: true });
+}
+
 export async function listMine(req: Request, res: Response): Promise<void> {
   const businesses = await businessesService.listMine(req.user!.id);
   res.json({ businesses });

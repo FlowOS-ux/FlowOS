@@ -21,6 +21,10 @@ export const queuesRepository = {
     return Queue.findByIdAndUpdate(id, update, { new: true }).exec();
   },
 
+  deleteByBusinessId(businessId: string): Promise<unknown> {
+    return Queue.deleteMany({ businessId }).exec();
+  },
+
   /** Atomically increment and return the next ticket number for a queue. */
   async nextTicketNumber(id: string): Promise<number> {
     const queue = await Queue.findByIdAndUpdate(
