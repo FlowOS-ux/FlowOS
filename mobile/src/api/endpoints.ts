@@ -106,4 +106,6 @@ export const notificationApi = {
   markAllRead: () => api.post('/notifications/read-all').then((r) => r.data),
   registerDevice: (token: string, platform: string) =>
     api.post('/notifications/devices', { token, platform }).then((r) => r.data),
+  removeDevice: (token: string) =>
+    api.delete(`/notifications/devices/${encodeURIComponent(token)}`).then((r) => r.data),
 };

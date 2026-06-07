@@ -8,6 +8,7 @@ import { authApi } from '../api/endpoints';
 import { setAuthTokens, registerAuthCallbacks } from '../api/client';
 import { saveTokens, loadTokens, clearTokens } from '../storage/tokens';
 import { connectSocket, disconnectSocket } from '../realtime/socket';
+import { registerDeviceToken, unregisterDeviceToken } from '../push/deviceToken';
 import type { Role, User } from '../api/types';
 
 interface AuthContextValue {
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearSession = useCallback(async () => {
+    await unregisterDeviceToken().catch(() => undefined);
     disconnectSocket();
     setAuthTokens(null, null);
     setUser(null);
@@ -44,9 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clearTokens();
   }, []);
 
-  // Open the realtime connection whenever we have an authenticated user.
+  // Open the realtime connection + register this device for push whenever we have
+  // an authenticated user. Device registration is gated by the user's push setting.
   useEffect(() => {
-    if (user) connectSocket();
+    if (user) {
+      connectSocket();
+      void registerDeviceToken({ pushEnabled: user.settings.pushEnabled }).catch(() => undefined);
+    }
   }, [user]);
 
   // Wire client callbacks (silent refresh + forced logout) once.
