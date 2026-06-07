@@ -26,6 +26,8 @@ export const authApi = {
     api.post('/auth/logout', { refreshToken }).then((r) => r.data),
   forgotPassword: (email: string) =>
     api.post('/auth/forgot-password', { email }).then((r) => r.data),
+  resetPassword: (token: string, password: string) =>
+    api.post('/auth/reset-password', { token, password }).then((r) => r.data),
 };
 
 export const userApi = {

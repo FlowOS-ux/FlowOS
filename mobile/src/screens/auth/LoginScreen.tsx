@@ -61,6 +61,7 @@ export default function LoginScreen({ navigation }: Props) {
       <Button mode="contained" loading={loading} disabled={loading} onPress={onSubmit}>
         Log in
       </Button>
+      <Button onPress={() => navigation.navigate('ForgotPassword')}>Forgot password?</Button>
       <Button onPress={() => navigation.navigate('Register')}>
         Don&apos;t have an account? Sign up
       </Button>

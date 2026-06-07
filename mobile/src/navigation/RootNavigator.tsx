@@ -21,6 +21,7 @@ import type {
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ExploreScreen from '../screens/customer/ExploreScreen';
 import BusinessDetailsScreen from '../screens/customer/BusinessDetailsScreen';
 import ActivityScreen from '../screens/customer/ActivityScreen';
@@ -48,6 +49,7 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
 }

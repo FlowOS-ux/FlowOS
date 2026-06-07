@@ -7,6 +7,7 @@ import type { Business, Queue } from '../api/types';
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
 };
 
 export type CustomerStackParamList = {
