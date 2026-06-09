@@ -1,6 +1,6 @@
 # FlowOS — Project Status (Single Source of Truth)
 
-> **Last updated:** 2026-06-07 · **Status:** Active development (Phase 2A in progress)
+> **Last updated:** 2026-06-09 · **Status:** Active development (Phase 2A + Admin Verification)
 > This document is the canonical reference for anyone joining FlowOS. It describes what the
 > product is, how it's built, exactly what's implemented today, and what remains.
 
@@ -141,7 +141,8 @@ memberships(staff) · favorites · analytics · ai · support · system`
 - **System:** `GET /system/health`, `GET /system/config`
 - **Auth:** `POST /auth/register|login|refresh|logout|forgot-password|reset-password`, `GET /auth/me`
 - **Users:** `GET/PATCH /users/me`, `GET/PATCH /users/me/settings`, `POST /users/me/onboarding-complete`
-- **Businesses:** `GET /businesses` (search/geo), `GET /businesses/:id`, `GET /businesses/mine`, `POST /businesses`, `PATCH /businesses/:id`
+- **Businesses:** `GET /businesses` (search/geo), `GET /businesses/:id`, `GET /businesses/mine`, `POST /businesses`, `PATCH /businesses/:id`, `DELETE /businesses/:id`
+- **Verification:** `POST /businesses/:id/submit` (owner → PENDING), `GET /businesses/pending` (admin), `POST /businesses/:id/approve` (admin), `POST /businesses/:id/reject` (admin, optional reason)
 - **Queues:** `GET /businesses/:id/queues`, `POST /businesses/:id/queues`, `GET /queues/:id`, `PATCH /queues/:id`
 - **Entries (engine):** `POST /queues/:id/join`, `GET /entries/me`, `DELETE /entries/:id`, `GET /queues/:id/entries`, `POST /queues/:id/call-next`, `POST /entries/:id/serve|complete|no-show`
 - **Notifications:** `GET /notifications`, `POST /notifications/read-all`, `PATCH /notifications/:id/read`, `POST/DELETE /notifications/devices[/:token]`
@@ -190,7 +191,7 @@ State machine `WAITING → CALLED → SERVING → COMPLETED` (+ `CANCELLED`/`NO_
 
 ## 5. Current Frontend Status (~52%)
 
-### Implemented screens (13)
+### Implemented screens (15)
 | Area | Screen | Notes |
 |---|---|---|
 | Auth | **LoginScreen** | wired (+ Forgot-password link) |
@@ -206,11 +207,14 @@ State machine `WAITING → CALLED → SERVING → COMPLETED` (+ `CANCELLED`/`NO_
 | Business | **QueueManagerScreen** | live operator view (call/serve/complete/no-show, real-time) |
 | Shared | **NotificationsScreen** | in-app feed (real-time `notification:new` + slow poll, live badge) |
 | Shared | **ProfileScreen** | profile + logout |
+| Admin | **AdminDashboardScreen** | pending-verification queue (refetch on focus) |
+| Admin | **BusinessReviewScreen** | review details + Approve / Reject (optional reason) |
 
 ### Navigation structure
 - **Auth stack:** Login, Register, ForgotPassword.
 - **Customer stack:** tabs (Explore, Activity, Notifications, Profile) + `BusinessDetails` (pushed).
 - **Business stack:** tabs (Dashboard, Notifications, Profile) + `CreateBusiness`, `BusinessSetup`, `QueueForm`, `QueueManager` (pushed).
+- **Admin stack:** tabs (Verification, Profile) + `BusinessReview` (pushed). `PLATFORM_ADMIN` routes here.
 
 ### Completed flows (mobile)
 - Customer: register → login → explore → join → **real-time live tracking**.
@@ -313,6 +317,15 @@ categories · refreshTokens · kycRequests`
 - **Version control** — repo initialized as a single monorepo (backend + mobile); baseline commit on
   branch `main`.
 
+- **Admin Verification** *(2026-06-09)* — business approval workflow. Owners submit a DRAFT/REJECTED
+  business for review (`POST /businesses/:id/submit` → `PENDING_VERIFICATION`); a `PLATFORM_ADMIN`
+  reviews via `GET /businesses/pending` and approves/rejects (`POST /businesses/:id/approve|reject`,
+  optional reason). **Removed owner self-activation** — `status` is no longer owner-editable, so a
+  business reaches `ACTIVE` only via admin approval (Explore + join-guard already gate on `ACTIVE`).
+  Added statuses `PENDING_VERIFICATION` / `REJECTED` + `Business.rejectionReason`. Mobile: Admin
+  navigator + `AdminDashboardScreen` + `BusinessReviewScreen`; owner `BusinessSetupScreen` now
+  "Submit for review" and shows the rejection reason; status-aware dashboard CTAs.
+
 ### Verification artifacts
 - `npm run smoke` → **20/20** (auth → business → activate → queue → join → position/ETA →
   call→serve→complete → notification persisted → RBAC → **join blocked when business not ACTIVE**).
@@ -349,13 +362,13 @@ categories · refreshTokens · kycRequests`
 
 | Area | % | Notes |
 |---|---|---|
-| Backend | **~86%** | 14 modules + ~55 endpoints; join-ACTIVE guard added; FCM/email stubbed |
-| Frontend | **~52%** | 13 of ~27 screens; onboarding loop + Forgot-Password done |
-| Database | **~95%** | all collections + indexes |
+| Backend | **~88%** | 14 modules + ~59 endpoints; admin verification workflow added |
+| Frontend | **~57%** | 15 of ~27 screens; admin verification UI + admin nav added |
+| Database | **~95%** | all collections + indexes; +`rejectionReason`, +2 business statuses |
 | Real-time | **~95%** | backend done; client consumption now full on all live surfaces |
 | Notifications | **~50%** | in-app real-time ✅, push ❌ |
-| Testing | **~22%** | smoke (20/20) + socket-smoke (5/5); no unit/CI |
-| **Overall** | **~63%** | strong backend, frontend catching up |
+| Testing | **~45%** | backend jest 28/28 + mobile jest 14/14 + smoke 23/23 + socket 5/5 + CI |
+| **Overall** | **~66%** | strong backend, frontend catching up |
 
 ---
 
