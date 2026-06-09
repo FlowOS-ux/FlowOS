@@ -18,7 +18,7 @@
 import { Platform } from 'react-native';
 
 // Public HTTPS endpoint for shared/release builds (Cloudflare quick tunnel).
-const PUBLIC_BASE_URL = 'https://journalist-mega-oops-demographic.trycloudflare.com';
+const PUBLIC_BASE_URL = 'https://flowos-backend-production-61d2.up.railway.app';
 
 const devBase = Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
 
