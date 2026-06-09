@@ -8,6 +8,7 @@ import {
   teardownTestApp,
   clearDb,
   registerAndLogin,
+  createAdminAndLogin,
   API,
   bearer,
   type TestContext,
@@ -31,9 +32,10 @@ async function registerOwner() {
   return res.accessToken;
 }
 
-describe('business activation & discoverability', () => {
-  it('hides DRAFT businesses from Explore and reveals them after activation', async () => {
+describe('business verification & discoverability', () => {
+  it('keeps DRAFT/PENDING hidden and reveals only after admin approval', async () => {
     const token = await registerOwner();
+    const adminToken = (await createAdminAndLogin(ctx.agent)).accessToken;
 
     const created = await ctx.agent
       .post(`${API}/businesses`)
@@ -48,15 +50,25 @@ describe('business activation & discoverability', () => {
     expect(draftExplore.status).toBe(200);
     expect(draftExplore.body.items.some((b: { id: string }) => b.id === id)).toBe(false);
 
-    // Activate.
-    const activate = await ctx.agent
+    // Owner cannot self-activate (status is not owner-editable).
+    const selfActivate = await ctx.agent
       .patch(`${API}/businesses/${id}`)
       .set(bearer(token))
       .send({ status: 'ACTIVE' });
-    expect(activate.status).toBe(200);
-    expect(activate.body.business.status).toBe('ACTIVE');
+    expect(selfActivate.status).toBe(422);
 
-    // ACTIVE -> discoverable in Explore.
+    // Owner submits for review -> PENDING_VERIFICATION (still hidden).
+    const submit = await ctx.agent.post(`${API}/businesses/${id}/submit`).set(bearer(token));
+    expect(submit.status).toBe(200);
+    expect(submit.body.business.status).toBe('PENDING_VERIFICATION');
+    const pendingExplore = await ctx.agent.get(`${API}/businesses`);
+    expect(pendingExplore.body.items.some((b: { id: string }) => b.id === id)).toBe(false);
+
+    // Admin approves -> ACTIVE -> discoverable.
+    const approve = await ctx.agent.post(`${API}/businesses/${id}/approve`).set(bearer(adminToken));
+    expect(approve.status).toBe(200);
+    expect(approve.body.business.status).toBe('ACTIVE');
+
     const activeExplore = await ctx.agent.get(`${API}/businesses`);
     expect(activeExplore.body.items.some((b: { id: string }) => b.id === id)).toBe(true);
   });
@@ -105,7 +117,7 @@ describe('business activation & discoverability', () => {
     const res = await ctx.agent
       .patch(`${API}/businesses/${id}`)
       .set(bearer(stranger.accessToken))
-      .send({ status: 'ACTIVE' });
+      .send({ name: 'Hacked Name' });
     expect(res.status).toBe(403);
   });
 });
@@ -118,7 +130,10 @@ describe('delete business', () => {
       .set(bearer(token))
       .send({ name: 'Temp Biz', category: 'OTHER' });
     const id = created.body.business.id as string;
-    await ctx.agent.patch(`${API}/businesses/${id}`).set(bearer(token)).send({ status: 'ACTIVE' });
+    // Activate via the real flow: owner submits, admin approves.
+    const adminToken = (await createAdminAndLogin(ctx.agent)).accessToken;
+    await ctx.agent.post(`${API}/businesses/${id}/submit`).set(bearer(token));
+    await ctx.agent.post(`${API}/businesses/${id}/approve`).set(bearer(adminToken));
     // A queue exists so the cascade is exercised.
     await ctx.agent
       .post(`${API}/businesses/${id}/queues`)

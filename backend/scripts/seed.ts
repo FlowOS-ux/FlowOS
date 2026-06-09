@@ -52,11 +52,12 @@ async function seed(): Promise<void> {
 
   const password = await hashPassword('password123');
 
+  // Seeded accounts are pre-verified so they can log in without the email OTP flow.
   const [admin, owner, staff, customer] = await User.create([
-    { name: 'Platform Admin', email: 'admin@flowos.test', passwordHash: password, role: 'PLATFORM_ADMIN' },
-    { name: 'Olivia Owner', email: 'owner@flowos.test', passwordHash: password, role: 'BUSINESS_OWNER' },
-    { name: 'Sam Staff', email: 'staff@flowos.test', passwordHash: password, role: 'STAFF' },
-    { name: 'Carl Customer', email: 'customer@flowos.test', passwordHash: password, role: 'CUSTOMER' },
+    { name: 'Platform Admin', email: 'admin@flowos.test', passwordHash: password, role: 'PLATFORM_ADMIN', emailVerified: true },
+    { name: 'Olivia Owner', email: 'owner@flowos.test', passwordHash: password, role: 'BUSINESS_OWNER', emailVerified: true },
+    { name: 'Sam Staff', email: 'staff@flowos.test', passwordHash: password, role: 'STAFF', emailVerified: true },
+    { name: 'Carl Customer', email: 'customer@flowos.test', passwordHash: password, role: 'CUSTOMER', emailVerified: true },
   ]);
 
   const business = await Business.create({
@@ -86,12 +87,41 @@ async function seed(): Promise<void> {
 
   await SavedBusiness.create({ userId: customer.id, businessId: business.id });
 
+  // A business awaiting verification so the admin dashboard has something to review.
+  const pendingBusiness = await Business.create({
+    name: 'Sunrise Dental Care',
+    category: 'HOSPITAL',
+    description: 'New dental clinic awaiting verification.',
+    ownerId: owner.id,
+    address: '88 Lake View Road',
+    location: { type: 'Point', coordinates: [78.4867, 17.385] }, // Hyderabad
+    phone: '+10000000001',
+    status: 'PENDING_VERIFICATION',
+    hours: [
+      { dayOfWeek: 1, openTime: '10:00', closeTime: '18:00' },
+      { dayOfWeek: 2, openTime: '10:00', closeTime: '18:00' },
+    ],
+  });
+  await StaffMember.create({
+    userId: owner.id,
+    businessId: pendingBusiness.id,
+    role: 'OWNER',
+    status: 'ACTIVE',
+  });
+  await Queue.create({
+    businessId: pendingBusiness.id,
+    name: 'Walk-in',
+    avgServiceSec: 600,
+    status: 'OPEN',
+  });
+
   logger.info('Seed complete:');
   logger.info('  Admin     admin@flowos.test / password123');
   logger.info('  Owner     owner@flowos.test / password123');
   logger.info('  Staff     staff@flowos.test / password123');
   logger.info('  Customer  customer@flowos.test / password123');
-  logger.info(`  Business  ${business.name} (${business.id})`);
+  logger.info(`  Business  ${business.name} (${business.id}) — ACTIVE`);
+  logger.info(`  Pending   ${pendingBusiness.name} (${pendingBusiness.id}) — awaiting admin approval`);
 
   void admin;
   await disconnectDB();

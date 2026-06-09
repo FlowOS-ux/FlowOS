@@ -40,3 +40,29 @@ export async function listMine(req: Request, res: Response): Promise<void> {
   const businesses = await businessesService.listMine(req.user!.id);
   res.json({ businesses });
 }
+
+// ---- Verification lifecycle ----
+
+export async function submitForReview(req: Request, res: Response): Promise<void> {
+  const business = await businessesService.submitForReview(
+    req.user!.id,
+    req.user!.role,
+    String(req.params.id),
+  );
+  res.json({ business });
+}
+
+export async function listPending(_req: Request, res: Response): Promise<void> {
+  const businesses = await businessesService.listPending();
+  res.json({ businesses });
+}
+
+export async function approve(req: Request, res: Response): Promise<void> {
+  const business = await businessesService.approve(String(req.params.id));
+  res.json({ business });
+}
+
+export async function reject(req: Request, res: Response): Promise<void> {
+  const business = await businessesService.reject(String(req.params.id), req.body);
+  res.json({ business });
+}

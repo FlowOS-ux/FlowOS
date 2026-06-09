@@ -26,6 +26,10 @@ export const businessesRepository = {
     return Business.find({ ownerId }).sort({ createdAt: -1 }).exec();
   },
 
+  listByStatus(status: string): Promise<BusinessDoc[]> {
+    return Business.find({ status }).sort({ updatedAt: -1 }).exec();
+  },
+
   async search(params: {
     filter: FilterQuery<BusinessDoc>;
     skip: number;

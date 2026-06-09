@@ -23,7 +23,7 @@ import Screen from '../../components/Screen';
 import ThumbnailPicker from '../../components/ThumbnailPicker';
 import { businessApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
-import { theme, spacing, statusColors } from '../../theme';
+import { theme, spacing, statusColors, businessStatusLabels } from '../../theme';
 import type { BusinessHour } from '../../api/types';
 import type { BusinessStackParamList } from '../../navigation/types';
 
@@ -63,17 +63,19 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
   const [address, setAddress] = useState(business.address ?? '');
   const [phone, setPhone] = useState(business.phone ?? '');
   const [logoUrl, setLogoUrl] = useState<string | null>(business.logoUrl ?? null);
-  const [active, setActive] = useState(business.status === 'ACTIVE');
   const [hours, setHours] = useState<Required<BusinessHour>[]>(() => buildHours(business.hours));
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const suspended = business.status === 'SUSPENDED';
-  const statusLabel = active ? 'ACTIVE' : suspended ? 'SUSPENDED' : 'DRAFT';
+  const status = business.status;
+  // Going ACTIVE is admin-controlled. Owners can only submit for review,
+  // and only from DRAFT or REJECTED.
+  const canSubmit = status === 'DRAFT' || status === 'REJECTED';
 
   const updateDay = (index: number, patch: Partial<Required<BusinessHour>>) => {
     setHours((prev) => prev.map((day, i) => (i === index ? { ...day, ...patch } : day)));
@@ -100,6 +102,26 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
     return null;
   };
 
+  /** Profile + hours payload. Status is never sent — it's admin/lifecycle-controlled. */
+  const buildUpdateBody = () => ({
+    name: name.trim(),
+    description: description.trim() || undefined,
+    address: address.trim() || undefined,
+    phone: phone.trim() || undefined,
+    logoUrl: logoUrl ?? undefined,
+    // Closed days drop their times; open days send both.
+    hours: hours.map((day) =>
+      day.isClosed
+        ? { dayOfWeek: day.dayOfWeek, isClosed: true }
+        : {
+            dayOfWeek: day.dayOfWeek,
+            openTime: day.openTime,
+            closeTime: day.closeTime,
+            isClosed: false,
+          },
+    ),
+  });
+
   const onSave = async () => {
     const validationError = validate();
     if (validationError) {
@@ -109,33 +131,35 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
     setError(null);
     setLoading(true);
     try {
-      await businessApi.update(business.id, {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        address: address.trim() || undefined,
-        phone: phone.trim() || undefined,
-        logoUrl: logoUrl ?? undefined,
-        // Closed days drop their times; open days send both.
-        hours: hours.map((day) =>
-          day.isClosed
-            ? { dayOfWeek: day.dayOfWeek, isClosed: true }
-            : {
-                dayOfWeek: day.dayOfWeek,
-                openTime: day.openTime,
-                closeTime: day.closeTime,
-                isClosed: false,
-              },
-        ),
-        // Don't override an admin SUSPENDED state from here.
-        ...(suspended ? {} : { status: active ? 'ACTIVE' : 'DRAFT' }),
-      });
+      await businessApi.update(business.id, buildUpdateBody());
       setSuccess(true);
-      // Dashboard refetches on focus and reflects the new status/hours.
+      // Dashboard refetches on focus and reflects the saved details.
       setTimeout(() => navigation.goBack(), 900);
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** Save the latest edits, then submit the business for admin verification. */
+  const onSubmitForReview = async () => {
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      await businessApi.update(business.id, buildUpdateBody());
+      await businessApi.submitForReview(business.id);
+      setSuccess(true);
+      setTimeout(() => navigation.goBack(), 900);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -155,35 +179,41 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
     }
   };
 
-  const activationNote = useMemo(() => {
-    if (suspended) return 'This business is suspended by an admin and cannot be activated here.';
-    return active
-      ? 'Active — visible in Explore and open for customers to join queues.'
-      : 'Draft — hidden from Explore. Turn on to publish your business.';
-  }, [active, suspended]);
+  const statusNote = useMemo(() => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'Active — visible in Explore and open for customers to join queues.';
+      case 'PENDING_VERIFICATION':
+        return 'Submitted for review. An admin will approve or reject it shortly.';
+      case 'REJECTED':
+        return 'Not approved. Update your details below and resubmit for review.';
+      case 'SUSPENDED':
+        return 'Suspended by an admin and not visible to customers.';
+      default:
+        return 'Draft — hidden from Explore. Submit for review to go live.';
+    }
+  }, [status]);
 
   return (
     <Screen scroll>
-      {/* Activation */}
+      {/* Verification status */}
       <View style={styles.statusHeader}>
         <Text variant="titleMedium">Status</Text>
-        <Chip
-          compact
-          textStyle={styles.chipText}
-          style={{ backgroundColor: statusColors[statusLabel] }}
-        >
-          {statusLabel}
+        <Chip compact textStyle={styles.chipText} style={{ backgroundColor: statusColors[status] }}>
+          {businessStatusLabels[status] ?? status}
         </Chip>
       </View>
-      <View style={styles.activationRow}>
-        <Text variant="bodyMedium" style={styles.flex}>
-          Active (discoverable)
-        </Text>
-        <Switch value={active} disabled={suspended} onValueChange={setActive} />
-      </View>
       <HelperText type="info" visible>
-        {activationNote}
+        {statusNote}
       </HelperText>
+      {status === 'REJECTED' && business.rejectionReason ? (
+        <View style={styles.rejectionBox}>
+          <Text variant="labelLarge" style={styles.rejectionTitle}>
+            Reason for rejection
+          </Text>
+          <Text variant="bodySmall">{business.rejectionReason}</Text>
+        </View>
+      ) : null}
 
       <Divider style={styles.divider} />
 
@@ -261,15 +291,39 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
 
       {error && <HelperText type="error">{error}</HelperText>}
 
-      <Button
-        mode="contained"
-        loading={loading}
-        disabled={loading}
-        onPress={onSave}
-        style={styles.save}
-      >
-        {suspended ? 'Save changes' : active ? 'Save & keep active' : 'Save & activate'}
-      </Button>
+      {canSubmit ? (
+        <>
+          <Button
+            mode="contained"
+            icon="send-check-outline"
+            loading={submitting}
+            disabled={submitting || loading}
+            onPress={onSubmitForReview}
+            style={styles.save}
+          >
+            {status === 'REJECTED' ? 'Resubmit for review' : 'Submit for review'}
+          </Button>
+          <Button
+            mode="text"
+            loading={loading}
+            disabled={loading || submitting}
+            onPress={onSave}
+            style={styles.saveDraft}
+          >
+            Save draft
+          </Button>
+        </>
+      ) : (
+        <Button
+          mode="contained"
+          loading={loading}
+          disabled={loading}
+          onPress={onSave}
+          style={styles.save}
+        >
+          Save changes
+        </Button>
+      )}
 
       <Divider style={styles.divider} />
       <Button
@@ -322,13 +376,20 @@ const styles = StyleSheet.create({
   divider: { marginVertical: spacing.xs },
   statusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chipText: { color: '#FFFFFF', fontWeight: '700' },
-  activationRow: { flexDirection: 'row', alignItems: 'center' },
+  rejectionBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  rejectionTitle: { color: theme.colors.error, marginBottom: 2 },
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dayLabel: { width: 36, fontWeight: '700' },
   timeInputs: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   timeInput: { flex: 1 },
   closedToggle: { alignItems: 'center' },
   save: { marginTop: spacing.sm },
+  saveDraft: { marginTop: spacing.xs },
   deleteBtn: { marginTop: spacing.sm, borderColor: theme.colors.error },
   deleteNote: { textAlign: 'center' },
 });

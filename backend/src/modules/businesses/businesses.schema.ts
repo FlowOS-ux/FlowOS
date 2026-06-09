@@ -26,6 +26,9 @@ export const createBusinessSchema = z.object({
   location: locationSchema.optional(),
 });
 
+// Note: `status` is intentionally NOT owner-editable. Going ACTIVE happens only
+// through admin approval (POST /businesses/:id/approve). Owners move a business
+// into review via POST /businesses/:id/submit.
 export const updateBusinessSchema = z
   .object({
     name: z.string().min(2).max(120).optional(),
@@ -36,9 +39,13 @@ export const updateBusinessSchema = z
     logoUrl: z.string().url().optional(),
     location: locationSchema.optional(),
     hours: z.array(hourSchema).max(7).optional(),
-    status: z.enum(['DRAFT', 'ACTIVE', 'SUSPENDED']).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'No fields to update' });
+
+/** Admin rejection: an optional reason shown back to the owner. */
+export const rejectBusinessSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
 
 export const exploreQuerySchema = z.object({
   search: z.string().max(120).optional(),
@@ -54,4 +61,5 @@ export const businessIdParam = z.object({ id: z.string().length(24) });
 
 export type CreateBusinessDto = z.infer<typeof createBusinessSchema>;
 export type UpdateBusinessDto = z.infer<typeof updateBusinessSchema>;
+export type RejectBusinessDto = z.infer<typeof rejectBusinessSchema>;
 export type ExploreQuery = z.infer<typeof exploreQuerySchema>;

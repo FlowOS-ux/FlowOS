@@ -23,3 +23,8 @@ export type BusinessStackParamList = {
   QueueForm: { businessId: string; queue?: Queue };
   QueueManager: { queueId: string; queueName: string };
 };
+
+export type AdminStackParamList = {
+  AdminTabs: undefined;
+  BusinessReview: { business: Business };
+};

@@ -42,7 +42,12 @@ export interface RegisterResult {
   devCode?: string;
 }
 
-export type BusinessStatus = 'DRAFT' | 'ACTIVE' | 'SUSPENDED';
+export type BusinessStatus =
+  | 'DRAFT'
+  | 'PENDING_VERIFICATION'
+  | 'ACTIVE'
+  | 'REJECTED'
+  | 'SUSPENDED';
 
 export interface BusinessHour {
   dayOfWeek: number; // 0 = Sunday ... 6 = Saturday
@@ -62,6 +67,7 @@ export interface Business {
   logoUrl: string | null;
   hours: BusinessHour[];
   status: BusinessStatus;
+  rejectionReason: string | null;
   ratingAvg: number;
   ratingCount: number;
   ownerId: string;

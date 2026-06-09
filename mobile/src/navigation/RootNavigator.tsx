@@ -16,6 +16,7 @@ import type {
   AuthStackParamList,
   CustomerStackParamList,
   BusinessStackParamList,
+  AdminStackParamList,
 } from './types';
 
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -30,6 +31,8 @@ import CreateBusinessScreen from '../screens/business/CreateBusinessScreen';
 import BusinessSetupScreen from '../screens/business/BusinessSetupScreen';
 import QueueFormScreen from '../screens/business/QueueFormScreen';
 import QueueManagerScreen from '../screens/business/QueueManagerScreen';
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import BusinessReviewScreen from '../screens/admin/BusinessReviewScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import ProfileScreen from '../screens/shared/ProfileScreen';
 import Splash from '../components/Splash';
@@ -37,8 +40,10 @@ import Splash from '../components/Splash';
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const CustomerStack = createNativeStackNavigator<CustomerStackParamList>();
 const BusinessStack = createNativeStackNavigator<BusinessStackParamList>();
+const AdminStack = createNativeStackNavigator<AdminStackParamList>();
 const CustomerTab = createBottomTabNavigator();
 const BusinessTab = createBottomTabNavigator();
+const AdminTab = createBottomTabNavigator();
 
 const tabIcon =
   (name: string) =>
@@ -158,6 +163,42 @@ function BusinessNavigator() {
   );
 }
 
+function AdminTabs() {
+  return (
+    <AdminTab.Navigator
+      screenOptions={{ tabBarActiveTintColor: theme.colors.primary, headerShown: true }}
+    >
+      <AdminTab.Screen
+        name="Pending"
+        component={AdminDashboardScreen}
+        options={{ title: 'Verification', tabBarIcon: tabIcon('clipboard-check-outline') }}
+      />
+      <AdminTab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarIcon: tabIcon('account-outline') }}
+      />
+    </AdminTab.Navigator>
+  );
+}
+
+function AdminNavigator() {
+  return (
+    <AdminStack.Navigator>
+      <AdminStack.Screen
+        name="AdminTabs"
+        component={AdminTabs}
+        options={{ headerShown: false }}
+      />
+      <AdminStack.Screen
+        name="BusinessReview"
+        component={BusinessReviewScreen}
+        options={{ title: 'Review business' }}
+      />
+    </AdminStack.Navigator>
+  );
+}
+
 export default function RootNavigator() {
   const { user, initializing } = useAuth();
 
@@ -165,11 +206,20 @@ export default function RootNavigator() {
     return <Splash />;
   }
 
+  const isAdmin = user?.role === 'PLATFORM_ADMIN';
   const isBusiness = user?.role === 'BUSINESS_OWNER' || user?.role === 'STAFF';
 
   return (
     <NavigationContainer>
-      {!user ? <AuthNavigator /> : isBusiness ? <BusinessNavigator /> : <CustomerNavigator />}
+      {!user ? (
+        <AuthNavigator />
+      ) : isAdmin ? (
+        <AdminNavigator />
+      ) : isBusiness ? (
+        <BusinessNavigator />
+      ) : (
+        <CustomerNavigator />
+      )}
     </NavigationContainer>
   );
 }

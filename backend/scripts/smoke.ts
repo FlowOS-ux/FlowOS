@@ -42,18 +42,55 @@ async function main(): Promise<void> {
   const health = await agent.get(`${API}/system/health`);
   check(health.status === 200 && health.body.db === 'connected', 'health: db connected');
 
-  // 2) Register owner + customer
-  const owner = await agent
-    .post(`${API}/auth/register`)
-    .send({ name: 'Olivia Owner', email: 'owner@flowos.test', password: 'password123', role: 'BUSINESS_OWNER' });
-  check(owner.status === 201 && !!owner.body.accessToken, 'register: business owner');
-  const ownerToken = owner.body.accessToken as string;
+  // 2) Register owner + customer. Registration now requires email verification;
+  //    in non-prod the OTP is returned as `devCode`, so we verify inline.
+  const registerVerified = async (body: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+  }) => {
+    const reg = await agent.post(`${API}/auth/register`).send(body);
+    const verified = await agent
+      .post(`${API}/auth/verify-email`)
+      .send({ email: body.email, otp: reg.body.devCode });
+    return { reg, verified };
+  };
 
-  const customer = await agent
+  const owner = await registerVerified({
+    name: 'Olivia Owner',
+    email: 'owner@flowos.test',
+    password: 'password123',
+    role: 'BUSINESS_OWNER',
+  });
+  check(
+    owner.reg.status === 201 && !!owner.verified.body.accessToken,
+    'register + verify: business owner',
+  );
+  const ownerToken = owner.verified.body.accessToken as string;
+
+  const customer = await registerVerified({
+    name: 'Carl Customer',
+    email: 'customer@flowos.test',
+    password: 'password123',
+  });
+  check(customer.verified.body.user.role === 'CUSTOMER', 'register + verify: customer');
+  const customerToken = customer.verified.body.accessToken as string;
+
+  // Platform admin (register API can't self-assign admin) — elevate in the DB, then log in.
+  const { User } = await import('../src/models/index.js');
+  await agent
     .post(`${API}/auth/register`)
-    .send({ name: 'Carl Customer', email: 'customer@flowos.test', password: 'password123' });
-  check(customer.status === 201 && customer.body.user.role === 'CUSTOMER', 'register: customer');
-  const customerToken = customer.body.accessToken as string;
+    .send({ name: 'Platform Admin', email: 'admin@flowos.test', password: 'password123' });
+  await User.updateOne(
+    { email: 'admin@flowos.test' },
+    { $set: { emailVerified: true, role: 'PLATFORM_ADMIN' } },
+  );
+  const adminLogin = await agent
+    .post(`${API}/auth/login`)
+    .send({ email: 'admin@flowos.test', password: 'password123' });
+  const adminToken = adminLogin.body.accessToken as string;
+  check(!!adminToken, 'admin: created + logged in');
 
   // 3) Login round-trip + refresh
   const login = await agent.post(`${API}/auth/login`).send({ email: 'owner@flowos.test', password: 'password123' });
@@ -69,8 +106,18 @@ async function main(): Promise<void> {
   check(biz.status === 201 && !!biz.body.business.id, 'business: created (DRAFT)');
   const businessId = biz.body.business.id as string;
 
-  const activate = await agent.patch(`${API}/businesses/${businessId}`).set(bearer(ownerToken)).send({ status: 'ACTIVE' });
-  check(activate.status === 200 && activate.body.business.status === 'ACTIVE', 'business: activated');
+  const submit = await agent.post(`${API}/businesses/${businessId}/submit`).set(bearer(ownerToken));
+  check(
+    submit.status === 200 && submit.body.business.status === 'PENDING_VERIFICATION',
+    'business: submitted for review (PENDING_VERIFICATION)',
+  );
+  const approve = await agent
+    .post(`${API}/businesses/${businessId}/approve`)
+    .set(bearer(adminToken));
+  check(
+    approve.status === 200 && approve.body.business.status === 'ACTIVE',
+    'business: admin approved (ACTIVE)',
+  );
 
   // 5) Create queue
   const queue = await agent
@@ -118,10 +165,23 @@ async function main(): Promise<void> {
   const forbidden = await agent.post(`${API}/queues/${queueId}/call-next`).set(bearer(customerToken));
   check(forbidden.status === 403, 'rbac: customer cannot call-next (403)');
 
-  // 12) Join-guard: a non-ACTIVE (DRAFT) business cannot be joined
-  await agent.patch(`${API}/businesses/${businessId}`).set(bearer(ownerToken)).send({ status: 'DRAFT' });
-  const draftJoin = await agent.post(`${API}/queues/${queueId}/join`).set(bearer(customerToken));
+  // 12) Join-guard: a brand-new DRAFT business cannot be joined.
+  const draftBiz = await agent
+    .post(`${API}/businesses`)
+    .set(bearer(ownerToken))
+    .send({ name: 'Draft Clinic', category: 'HOSPITAL' });
+  const draftQueue = await agent
+    .post(`${API}/businesses/${draftBiz.body.business.id}/queues`)
+    .set(bearer(ownerToken))
+    .send({ name: 'General' });
+  const draftJoin = await agent
+    .post(`${API}/queues/${draftQueue.body.queue.id}/join`)
+    .set(bearer(customerToken));
   check(draftJoin.status === 400, 'join: blocked when business not ACTIVE (400)');
+
+  // 13) Admin RBAC: a non-admin cannot list the verification queue.
+  const ownerPending = await agent.get(`${API}/businesses/pending`).set(bearer(ownerToken));
+  check(ownerPending.status === 403, 'rbac: non-admin cannot list pending (403)');
 
   await disconnectDB();
   await mongo.stop();

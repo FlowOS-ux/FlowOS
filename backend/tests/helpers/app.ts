@@ -56,6 +56,30 @@ export async function registerAndLogin(
   return res.body;
 }
 
+/**
+ * Create a PLATFORM_ADMIN and log in. The register API only allows CUSTOMER /
+ * BUSINESS_OWNER, so we elevate the role directly in the DB, then log in so the
+ * issued JWT carries the admin role.
+ */
+export async function createAdminAndLogin(
+  agent: SuperTest<Test>,
+  email = 'admin@flowos.test',
+  password = 'password123',
+): Promise<{ accessToken: string }> {
+  await agent.post(`${API}/auth/register`).send({ name: 'Platform Admin', email, password });
+  const db = mongoose.connection.db;
+  if (db) {
+    await db
+      .collection('users')
+      .updateOne(
+        { email: email.toLowerCase() },
+        { $set: { emailVerified: true, role: 'PLATFORM_ADMIN' } },
+      );
+  }
+  const res = await agent.post(`${API}/auth/login`).send({ email, password });
+  return { accessToken: res.body.accessToken };
+}
+
 /** Wipe all collections between tests for isolation. */
 export async function clearDb(): Promise<void> {
   const db = mongoose.connection.db;

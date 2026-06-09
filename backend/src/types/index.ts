@@ -12,8 +12,24 @@ export const MEMBERSHIP_ROLES = ['OWNER', 'MANAGER', 'STAFF'] as const;
 export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
 
 // ---- Domain enums ----
-export const BUSINESS_STATUSES = ['DRAFT', 'ACTIVE', 'SUSPENDED'] as const;
+// DRAFT      -> owner is still setting up (editable, hidden from Explore)
+// PENDING_VERIFICATION -> owner submitted; awaiting admin review
+// ACTIVE     -> admin-approved; discoverable in Explore and joinable
+// REJECTED   -> admin-rejected (editable again; owner can resubmit)
+// SUSPENDED  -> admin-suspended after going live
+export const BUSINESS_STATUSES = [
+  'DRAFT',
+  'PENDING_VERIFICATION',
+  'ACTIVE',
+  'REJECTED',
+  'SUSPENDED',
+] as const;
 export type BusinessStatus = (typeof BUSINESS_STATUSES)[number];
+
+/** Statuses an owner may edit business profile/hours from. */
+export const OWNER_EDITABLE_STATUSES: BusinessStatus[] = ['DRAFT', 'REJECTED'];
+/** Statuses from which an owner may submit a business for admin review. */
+export const SUBMITTABLE_STATUSES: BusinessStatus[] = ['DRAFT', 'REJECTED'];
 
 export const QUEUE_STATUSES = ['OPEN', 'PAUSED', 'CLOSED'] as const;
 export type QueueStatus = (typeof QUEUE_STATUSES)[number];

@@ -9,9 +9,30 @@ import { entriesRepository } from '../entries/entries.repository';
 import { membershipsRepository } from '../memberships/memberships.repository';
 import { StaffMember, type BusinessDoc } from '../../models';
 import { assertBusinessRole } from '../../lib/businessAccess';
-import { NotFoundError } from '../../lib/errors';
-import type { Role } from '../../types';
-import type { CreateBusinessDto, UpdateBusinessDto, ExploreQuery } from './businesses.schema';
+import { BadRequestError, NotFoundError } from '../../lib/errors';
+import { logger } from '../../lib/logger';
+import { notifications } from '../../container';
+import { SUBMITTABLE_STATUSES, type Role } from '../../types';
+import type {
+  CreateBusinessDto,
+  UpdateBusinessDto,
+  RejectBusinessDto,
+  ExploreQuery,
+} from './businesses.schema';
+
+/** Best-effort owner notification on a verification decision (never fails the request). */
+async function notifyOwner(
+  ownerId: string,
+  title: string,
+  body: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await notifications.notify(ownerId, { type: 'GENERIC', title, body, data });
+  } catch (err) {
+    logger.error({ err }, 'failed to notify business owner of verification decision');
+  }
+}
 
 export function toPublicBusiness(b: BusinessDoc) {
   const coords = b.location?.coordinates ?? [0, 0];
@@ -26,6 +47,7 @@ export function toPublicBusiness(b: BusinessDoc) {
     logoUrl: b.logoUrl ?? null,
     hours: b.hours ?? [],
     status: b.status,
+    rejectionReason: b.rejectionReason ?? null,
     ratingAvg: b.ratingAvg,
     ratingCount: b.ratingCount,
     ownerId: String(b.ownerId),
@@ -72,6 +94,77 @@ export const businessesService = {
     const business = await businessesRepository.updateById(id, update);
     if (!business) throw new NotFoundError('Business not found');
     return toPublicBusiness(business);
+  },
+
+  // ---- Verification lifecycle ----
+
+  /** Owner submits a DRAFT/REJECTED business for admin review -> PENDING_VERIFICATION. */
+  async submitForReview(userId: string, role: Role, id: string) {
+    await assertBusinessRole(userId, id, 'MANAGER', role);
+    const business = await businessesRepository.findById(id);
+    if (!business) throw new NotFoundError('Business not found');
+
+    if (!SUBMITTABLE_STATUSES.includes(business.status)) {
+      throw new BadRequestError(
+        `A ${business.status} business cannot be submitted for review`,
+      );
+    }
+
+    const updated = await businessesRepository.updateById(id, {
+      status: 'PENDING_VERIFICATION',
+      rejectionReason: null,
+    });
+    return toPublicBusiness(updated!);
+  },
+
+  /** Admin: list businesses awaiting verification (RBAC enforced at the route). */
+  async listPending() {
+    const businesses = await businessesRepository.listByStatus('PENDING_VERIFICATION');
+    return businesses.map(toPublicBusiness);
+  },
+
+  /** Admin: approve a pending business -> ACTIVE (now discoverable + joinable). */
+  async approve(id: string) {
+    const business = await businessesRepository.findById(id);
+    if (!business) throw new NotFoundError('Business not found');
+    if (business.status !== 'PENDING_VERIFICATION') {
+      throw new BadRequestError('Only a business pending verification can be approved');
+    }
+
+    const updated = await businessesRepository.updateById(id, {
+      status: 'ACTIVE',
+      rejectionReason: null,
+    });
+    await notifyOwner(
+      String(updated!.ownerId),
+      'Business approved 🎉',
+      `${updated!.name} is now live and visible to customers.`,
+      { businessId: id, status: 'ACTIVE' },
+    );
+    return toPublicBusiness(updated!);
+  },
+
+  /** Admin: reject a pending business -> REJECTED (editable + resubmittable). */
+  async reject(id: string, dto: RejectBusinessDto) {
+    const business = await businessesRepository.findById(id);
+    if (!business) throw new NotFoundError('Business not found');
+    if (business.status !== 'PENDING_VERIFICATION') {
+      throw new BadRequestError('Only a business pending verification can be rejected');
+    }
+
+    const updated = await businessesRepository.updateById(id, {
+      status: 'REJECTED',
+      rejectionReason: dto.reason ?? null,
+    });
+    await notifyOwner(
+      String(updated!.ownerId),
+      'Business needs changes',
+      dto.reason
+        ? `${updated!.name} was not approved: ${dto.reason}`
+        : `${updated!.name} was not approved. Please review and resubmit.`,
+      { businessId: id, status: 'REJECTED' },
+    );
+    return toPublicBusiness(updated!);
   },
 
   /** Owner-only hard delete. Cascades to queues, their entries, and staff memberships. */

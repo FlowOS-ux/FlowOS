@@ -67,6 +67,9 @@ export const businessApi = {
   }) => api.post<{ business: Business }>('/businesses', body).then((r) => r.data.business),
   update: (id: string, body: Record<string, unknown>) =>
     api.patch<{ business: Business }>(`/businesses/${id}`, body).then((r) => r.data.business),
+  /** Owner submits a DRAFT/REJECTED business for admin verification. */
+  submitForReview: (id: string) =>
+    api.post<{ business: Business }>(`/businesses/${id}/submit`).then((r) => r.data.business),
   remove: (id: string) => api.delete(`/businesses/${id}`).then((r) => r.data),
   queues: (businessId: string) =>
     api.get<{ queues: Queue[] }>(`/businesses/${businessId}/queues`).then((r) => r.data.queues),
@@ -88,6 +91,18 @@ export const businessApi = {
     api
       .get<{ summary: AnalyticsSummary }>(`/businesses/${businessId}/analytics/summary`)
       .then((r) => r.data.summary),
+};
+
+export const adminApi = {
+  /** Platform admin: businesses awaiting verification. */
+  pendingBusinesses: () =>
+    api.get<{ businesses: Business[] }>('/businesses/pending').then((r) => r.data.businesses),
+  approveBusiness: (id: string) =>
+    api.post<{ business: Business }>(`/businesses/${id}/approve`).then((r) => r.data.business),
+  rejectBusiness: (id: string, reason?: string) =>
+    api
+      .post<{ business: Business }>(`/businesses/${id}/reject`, { reason })
+      .then((r) => r.data.business),
 };
 
 export const mediaApi = {

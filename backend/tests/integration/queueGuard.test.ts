@@ -8,6 +8,7 @@ import {
   teardownTestApp,
   clearDb,
   registerAndLogin,
+  createAdminAndLogin,
   API,
   bearer,
   type TestContext,
@@ -61,15 +62,16 @@ describe('join guard (business must be ACTIVE)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('allows joining once the business is ACTIVE', async () => {
+  it('allows joining once the business is approved (ACTIVE)', async () => {
     const { ownerToken, customerToken, businessId, queueId } = await seedOwnerCustomerQueue();
+    const adminToken = (await createAdminAndLogin(ctx.agent)).accessToken;
 
-    const activate = await ctx.agent
-      .patch(`${API}/businesses/${businessId}`)
-      .set(bearer(ownerToken))
-      .send({ status: 'ACTIVE' });
-    expect(activate.status).toBe(200);
-    expect(activate.body.business.status).toBe('ACTIVE');
+    await ctx.agent.post(`${API}/businesses/${businessId}/submit`).set(bearer(ownerToken));
+    const approve = await ctx.agent
+      .post(`${API}/businesses/${businessId}/approve`)
+      .set(bearer(adminToken));
+    expect(approve.status).toBe(200);
+    expect(approve.body.business.status).toBe('ACTIVE');
 
     const join = await ctx.agent.post(`${API}/queues/${queueId}/join`).set(bearer(customerToken));
     expect(join.status).toBe(201);

@@ -21,7 +21,7 @@ import { businessApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
 import { useDashboardEvents } from '../../realtime/useRealtimeEvents';
 import { isConnected, onConnectionChange } from '../../realtime/socket';
-import { theme, spacing, statusColors } from '../../theme';
+import { theme, spacing, statusColors, businessStatusLabels } from '../../theme';
 import type { Business, Queue, AnalyticsSummary } from '../../api/types';
 import type { BusinessStackParamList } from '../../navigation/types';
 
@@ -119,7 +119,7 @@ export default function BusinessesScreen() {
                   textStyle={styles.statusChipText}
                   style={[styles.statusChip, { backgroundColor: statusColors[business.status] }]}
                 >
-                  {business.status}
+                  {businessStatusLabels[business.status] ?? business.status}
                 </Chip>
                 <IconButton
                   icon="cog-outline"
@@ -131,16 +131,34 @@ export default function BusinessesScreen() {
           />
           {business.status !== 'ACTIVE' && (
             <Card.Content>
-              <Button
-                mode="contained-tonal"
-                icon="rocket-launch-outline"
-                onPress={() => navigation.navigate('BusinessSetup', { business })}
-              >
-                Setup &amp; activate
-              </Button>
-              <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
-                Not yet visible to customers. Set hours and activate to appear in Explore.
-              </Text>
+              {business.status === 'PENDING_VERIFICATION' ? (
+                <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
+                  ⏳ Pending admin review — you’ll be notified once it’s approved.
+                </Text>
+              ) : business.status === 'SUSPENDED' ? (
+                <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
+                  Suspended by an admin. Not visible to customers.
+                </Text>
+              ) : (
+                <>
+                  <Button
+                    mode="contained-tonal"
+                    icon={
+                      business.status === 'REJECTED'
+                        ? 'alert-circle-outline'
+                        : 'rocket-launch-outline'
+                    }
+                    onPress={() => navigation.navigate('BusinessSetup', { business })}
+                  >
+                    {business.status === 'REJECTED' ? 'Update & resubmit' : 'Setup & submit for review'}
+                  </Button>
+                  <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
+                    {business.status === 'REJECTED'
+                      ? 'Not approved. Update details and resubmit to go live.'
+                      : 'Not yet visible. Complete setup and submit for admin review to appear in Explore.'}
+                  </Text>
+                </>
+              )}
             </Card.Content>
           )}
           {summary && (

@@ -56,20 +56,46 @@ async function main(): Promise<void> {
   const agent = request(app);
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
 
-  // Seed: owner + customer + active business + queue.
-  const owner = (
-    await agent.post(`${API}/auth/register`).send({
-      name: 'Owner',
-      email: 'o@rt.test',
-      password: 'password123',
-      role: 'BUSINESS_OWNER',
-    })
-  ).body;
-  const customer = (
-    await agent
-      .post(`${API}/auth/register`)
-      .send({ name: 'Customer', email: 'c@rt.test', password: 'password123' })
-  ).body;
+  // Seed: owner + customer + admin-approved business + queue.
+  // Registration requires email verification; the OTP returns as devCode in non-prod.
+  const registerVerified = async (body: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+  }) => {
+    const reg = await agent.post(`${API}/auth/register`).send(body);
+    return (
+      await agent
+        .post(`${API}/auth/verify-email`)
+        .send({ email: body.email, otp: reg.body.devCode })
+    ).body;
+  };
+
+  const owner = await registerVerified({
+    name: 'Owner',
+    email: 'o@rt.test',
+    password: 'password123',
+    role: 'BUSINESS_OWNER',
+  });
+  const customer = await registerVerified({
+    name: 'Customer',
+    email: 'c@rt.test',
+    password: 'password123',
+  });
+
+  // Platform admin to approve the business (register API can't self-assign admin).
+  const { User } = await import('../src/models/index.js');
+  await agent
+    .post(`${API}/auth/register`)
+    .send({ name: 'Admin', email: 'a@rt.test', password: 'password123' });
+  await User.updateOne(
+    { email: 'a@rt.test' },
+    { $set: { emailVerified: true, role: 'PLATFORM_ADMIN' } },
+  );
+  const adminToken = (
+    await agent.post(`${API}/auth/login`).send({ email: 'a@rt.test', password: 'password123' })
+  ).body.accessToken;
 
   const bizRes = await agent.post(`${API}/businesses`).set(bearer(owner.accessToken)).send({
     name: 'RT Clinic',
@@ -80,7 +106,9 @@ async function main(): Promise<void> {
     console.error('business create failed', bizRes.status, JSON.stringify(bizRes.body));
   }
   const businessId = bizRes.body.business.id;
-  await agent.patch(`${API}/businesses/${businessId}`).set(bearer(owner.accessToken)).send({ status: 'ACTIVE' });
+  // Submit for review, then admin-approve -> ACTIVE (so the queue is joinable).
+  await agent.post(`${API}/businesses/${businessId}/submit`).set(bearer(owner.accessToken));
+  await agent.post(`${API}/businesses/${businessId}/approve`).set(bearer(adminToken));
   const queueId = (
     await agent
       .post(`${API}/businesses/${businessId}/queues`)

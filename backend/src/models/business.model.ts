@@ -32,6 +32,8 @@ const businessSchema = new Schema(
     logoUrl: { type: String },
     hours: { type: [businessHourSchema], default: [] },
     status: { type: String, enum: BUSINESS_STATUSES, default: 'DRAFT', index: true },
+    // Set by an admin when a verification review is rejected; shown back to the owner.
+    rejectionReason: { type: String },
     // Denormalized rating aggregates (maintained by the reviews service).
     ratingAvg: { type: Number, default: 0 },
     ratingCount: { type: Number, default: 0 },
