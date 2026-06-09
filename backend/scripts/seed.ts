@@ -51,10 +51,12 @@ async function seed(): Promise<void> {
   await Category.insertMany(CATEGORIES);
 
   const password = await hashPassword('password123');
+  const adminPassword = await hashPassword('12345678ct');
 
   // Seeded accounts are pre-verified so they can log in without the email OTP flow.
+  // The single admin is the only PLATFORM_ADMIN (admin self-registration is disabled).
   const [admin, owner, staff, customer] = await User.create([
-    { name: 'Platform Admin', email: 'admin@flowos.test', passwordHash: password, role: 'PLATFORM_ADMIN', emailVerified: true },
+    { name: 'Platform Admin', email: 'sreelekhaac2427@gmail.com', passwordHash: adminPassword, role: 'PLATFORM_ADMIN', emailVerified: true },
     { name: 'Olivia Owner', email: 'owner@flowos.test', passwordHash: password, role: 'BUSINESS_OWNER', emailVerified: true },
     { name: 'Sam Staff', email: 'staff@flowos.test', passwordHash: password, role: 'STAFF', emailVerified: true },
     { name: 'Carl Customer', email: 'customer@flowos.test', passwordHash: password, role: 'CUSTOMER', emailVerified: true },
@@ -68,7 +70,9 @@ async function seed(): Promise<void> {
     address: '12 Market Street',
     location: { type: 'Point', coordinates: [77.5946, 12.9716] }, // [lng, lat]
     phone: '+10000000000',
-    status: 'ACTIVE',
+    status: 'APPROVED',
+    approvedAt: new Date(),
+    approvedBy: admin.id,
     hours: [
       { dayOfWeek: 1, openTime: '09:00', closeTime: '17:00' },
       { dayOfWeek: 2, openTime: '09:00', closeTime: '17:00' },
@@ -116,14 +120,13 @@ async function seed(): Promise<void> {
   });
 
   logger.info('Seed complete:');
-  logger.info('  Admin     admin@flowos.test / password123');
+  logger.info('  Admin     sreelekhaac2427@gmail.com / 12345678ct');
   logger.info('  Owner     owner@flowos.test / password123');
   logger.info('  Staff     staff@flowos.test / password123');
   logger.info('  Customer  customer@flowos.test / password123');
-  logger.info(`  Business  ${business.name} (${business.id}) — ACTIVE`);
-  logger.info(`  Pending   ${pendingBusiness.name} (${pendingBusiness.id}) — awaiting admin approval`);
+  logger.info(`  Business  ${business.name} (${business.id}) — APPROVED`);
+  logger.info(`  Pending   ${pendingBusiness.name} (${pendingBusiness.id}) — PENDING_VERIFICATION`);
 
-  void admin;
   await disconnectDB();
 }
 

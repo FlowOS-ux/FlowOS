@@ -23,6 +23,7 @@ import analyticsRoutes from '../../modules/analytics/analytics.routes';
 import aiRoutes from '../../modules/ai/ai.routes';
 import supportRoutes from '../../modules/support/support.routes';
 import mediaRoutes from '../../modules/media/media.routes';
+import adminRoutes from '../../modules/admin/admin.routes';
 
 const router = Router();
 
@@ -75,6 +76,9 @@ router.use('/support', supportRoutes);
 
 // Media uploads (business logos / thumbnails, avatars)
 router.use('/media', mediaRoutes);
+
+// Admin verification dashboard (PLATFORM_ADMIN only)
+router.use('/admin', adminRoutes);
 // router.use('/businesses', businessRoutes);
 // router.use('/queues', queueRoutes);
 // router.use('/entries', entryRoutes);

@@ -129,84 +129,86 @@ export default function BusinessesScreen() {
               </View>
             )}
           />
-          {business.status !== 'ACTIVE' && (
+          {business.status === 'APPROVED' ? (
+            <>
+              {summary && (
+                <Card.Content>
+                  <View style={styles.metrics}>
+                    <Metric label="Waiting" value={summary.currentlyWaiting} />
+                    <Metric label="Served (24h)" value={summary.completed} />
+                    <Metric label="No-shows" value={summary.noShows} />
+                  </View>
+                </Card.Content>
+              )}
+              <Divider style={styles.divider} />
+              <Card.Content style={styles.queues}>
+                {queues.length === 0 && <Text style={styles.muted}>No queues yet.</Text>}
+                {queues.map((q) => (
+                  <View key={q.id} style={styles.queueRow}>
+                    <View style={styles.flex}>
+                      <Text variant="titleSmall">{q.name}</Text>
+                      <Text variant="bodySmall" style={styles.muted}>
+                        {q.status}
+                      </Text>
+                    </View>
+                    <IconButton
+                      icon="pencil"
+                      size={20}
+                      onPress={() =>
+                        navigation.navigate('QueueForm', { businessId: business.id, queue: q })
+                      }
+                    />
+                    <Button
+                      mode="contained-tonal"
+                      compact
+                      onPress={() =>
+                        navigation.navigate('QueueManager', { queueId: q.id, queueName: q.name })
+                      }
+                    >
+                      Manage
+                    </Button>
+                  </View>
+                ))}
+                <Button
+                  mode="text"
+                  icon="plus"
+                  onPress={() => navigation.navigate('QueueForm', { businessId: business.id })}
+                >
+                  Add queue
+                </Button>
+              </Card.Content>
+            </>
+          ) : (
             <Card.Content>
               {business.status === 'PENDING_VERIFICATION' ? (
-                <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
-                  ⏳ Pending admin review — you’ll be notified once it’s approved.
-                </Text>
-              ) : business.status === 'SUSPENDED' ? (
-                <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
-                  Suspended by an admin. Not visible to customers.
-                </Text>
+                <View style={styles.banner}>
+                  <Text variant="titleSmall">⏳ Awaiting admin approval</Text>
+                  <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
+                    Your business is under review. An administrator must approve your business
+                    before you can start managing queues.
+                  </Text>
+                </View>
               ) : (
-                <>
+                <View style={styles.banner}>
+                  <Text variant="titleSmall" style={styles.rejectedTitle}>
+                    Not approved
+                  </Text>
+                  <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
+                    {business.rejectionReason
+                      ? `Reason: ${business.rejectionReason}`
+                      : 'This business was not approved by the review team.'}
+                  </Text>
                   <Button
-                    mode="contained-tonal"
-                    icon={
-                      business.status === 'REJECTED'
-                        ? 'alert-circle-outline'
-                        : 'rocket-launch-outline'
-                    }
+                    mode="text"
+                    icon="cog-outline"
                     onPress={() => navigation.navigate('BusinessSetup', { business })}
                   >
-                    {business.status === 'REJECTED' ? 'Update & resubmit' : 'Setup & submit for review'}
+                    Edit details
                   </Button>
-                  <Text variant="bodySmall" style={[styles.muted, styles.activateNote]}>
-                    {business.status === 'REJECTED'
-                      ? 'Not approved. Update details and resubmit to go live.'
-                      : 'Not yet visible. Complete setup and submit for admin review to appear in Explore.'}
-                  </Text>
-                </>
+                </View>
               )}
             </Card.Content>
           )}
-          {summary && (
-            <Card.Content>
-              <View style={styles.metrics}>
-                <Metric label="Waiting" value={summary.currentlyWaiting} />
-                <Metric label="Served (24h)" value={summary.completed} />
-                <Metric label="No-shows" value={summary.noShows} />
-              </View>
-            </Card.Content>
-          )}
-          <Divider style={styles.divider} />
-          <Card.Content style={styles.queues}>
-            {queues.length === 0 && <Text style={styles.muted}>No queues yet.</Text>}
-            {queues.map((q) => (
-              <View key={q.id} style={styles.queueRow}>
-                <View style={styles.flex}>
-                  <Text variant="titleSmall">{q.name}</Text>
-                  <Text variant="bodySmall" style={styles.muted}>
-                    {q.status}
-                  </Text>
-                </View>
-                <IconButton
-                  icon="pencil"
-                  size={20}
-                  onPress={() =>
-                    navigation.navigate('QueueForm', { businessId: business.id, queue: q })
-                  }
-                />
-                <Button
-                  mode="contained-tonal"
-                  compact
-                  onPress={() =>
-                    navigation.navigate('QueueManager', { queueId: q.id, queueName: q.name })
-                  }
-                >
-                  Manage
-                </Button>
-              </View>
-            ))}
-            <Button
-              mode="text"
-              icon="plus"
-              onPress={() => navigation.navigate('QueueForm', { businessId: business.id })}
-            >
-              Add queue
-            </Button>
-          </Card.Content>
         </Card>
       ))}
       </ScrollView>
@@ -243,6 +245,8 @@ const styles = StyleSheet.create({
   statusChip: { marginRight: spacing.xs },
   statusChipText: { color: '#FFFFFF', fontWeight: '700', fontSize: 11 },
   activateNote: { marginTop: spacing.xs },
+  banner: { gap: spacing.xs },
+  rejectedTitle: { color: theme.colors.error },
   metrics: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: spacing.sm },
   metric: { alignItems: 'center' },
   metricValue: { fontWeight: '800', color: theme.colors.primary },

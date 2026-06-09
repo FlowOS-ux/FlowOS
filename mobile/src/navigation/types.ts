@@ -2,7 +2,7 @@
  * FlowOS mobile - src/navigation/types.ts
  * Navigation param lists for typed navigation/route props.
  */
-import type { Business, Queue } from '../api/types';
+import type { Business, AdminBusiness, Queue } from '../api/types';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -26,5 +26,5 @@ export type BusinessStackParamList = {
 
 export type AdminStackParamList = {
   AdminTabs: undefined;
-  BusinessReview: { business: Business };
+  BusinessReview: { business: AdminBusiness };
 };

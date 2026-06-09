@@ -1,13 +1,15 @@
 /**
  * FlowOS mobile - src/screens/admin/BusinessReviewScreen.tsx
- * Platform-admin review of a single PENDING_VERIFICATION business.
- * Approve -> ACTIVE (discoverable + joinable). Reject -> REJECTED (+ optional reason).
+ * Platform-admin review of a single business. Shows business + owner details.
+ * For a PENDING_VERIFICATION business: Approve -> APPROVED, or Reject (+ optional
+ * reason) -> REJECTED. Approved/rejected businesses are shown read-only with audit.
  */
 import React, { useState } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import {
   Text,
   Button,
+  Chip,
   Divider,
   HelperText,
   Snackbar,
@@ -19,15 +21,23 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Screen from '../../components/Screen';
 import { adminApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
-import { theme, spacing } from '../../theme';
+import { theme, spacing, statusColors, businessStatusLabels } from '../../theme';
 import type { AdminStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'BusinessReview'>;
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function formatDate(iso?: string | null): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return '';
+  }
+}
 
 export default function BusinessReviewScreen({ route, navigation }: Props) {
   const { business } = route.params;
+  const isPending = business.status === 'PENDING_VERIFICATION';
 
   const [error, setError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
@@ -43,7 +53,7 @@ export default function BusinessReviewScreen({ route, navigation }: Props) {
     setApproving(true);
     try {
       await adminApi.approveBusiness(business.id);
-      setSuccess('Approved — now live 🎉');
+      setSuccess('Approved — business is now live 🎉');
       setTimeout(() => navigation.goBack(), 800);
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -57,7 +67,7 @@ export default function BusinessReviewScreen({ route, navigation }: Props) {
     try {
       await adminApi.rejectBusiness(business.id, reason.trim() || undefined);
       setRejectVisible(false);
-      setSuccess('Rejected');
+      setSuccess('Business rejected');
       setTimeout(() => navigation.goBack(), 800);
     } catch (err) {
       setRejectVisible(false);
@@ -66,82 +76,83 @@ export default function BusinessReviewScreen({ route, navigation }: Props) {
     }
   };
 
-  const openHours = business.hours.filter((h) => !h.isClosed);
-
   return (
     <Screen scroll>
       {business.logoUrl ? (
         <Image source={{ uri: business.logoUrl }} style={styles.cover} resizeMode="cover" />
       ) : null}
 
-      <Text variant="headlineSmall">{business.name}</Text>
-      <Text variant="bodyMedium" style={styles.muted}>
-        {business.category}
-      </Text>
+      <View style={styles.titleRow}>
+        <Text variant="headlineSmall" style={styles.flex}>
+          {business.name}
+        </Text>
+        <Chip
+          compact
+          textStyle={styles.chipText}
+          style={{ backgroundColor: statusColors[business.status] }}
+        >
+          {businessStatusLabels[business.status] ?? business.status}
+        </Chip>
+      </View>
 
       <Divider style={styles.divider} />
+      <Text variant="titleMedium">Owner</Text>
+      <Field label="Name" value={business.owner.name} />
+      <Field label="Email" value={business.owner.email} />
+      <Field label="Phone" value={business.owner.phone} />
 
+      <Divider style={styles.divider} />
+      <Text variant="titleMedium">Business</Text>
+      <Field label="Category" value={business.category} />
       <Field label="Description" value={business.description} />
       <Field label="Address" value={business.address} />
-      <Field label="Phone" value={business.phone} />
-      <Field
-        label="Location"
-        value={
-          business.location && (business.location.lat || business.location.lng)
-            ? `${business.location.lat.toFixed(4)}, ${business.location.lng.toFixed(4)}`
-            : null
-        }
-      />
+      <Field label="Business phone" value={business.phone} />
+      <Field label="Submitted" value={formatDate(business.submittedAt)} />
 
-      <Text variant="labelLarge" style={styles.hoursTitle}>
-        Opening hours
-      </Text>
-      {openHours.length === 0 ? (
-        <Text variant="bodySmall" style={styles.muted}>
-          No open days set.
-        </Text>
-      ) : (
-        openHours
-          .slice()
-          .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-          .map((h) => (
-            <Text key={h.dayOfWeek} variant="bodySmall">
-              {DAYS[h.dayOfWeek]}: {h.openTime} – {h.closeTime}
-            </Text>
-          ))
-      )}
+      {business.status === 'APPROVED' && business.approvedAt ? (
+        <Field label="Approved" value={formatDate(business.approvedAt)} />
+      ) : null}
+      {business.status === 'REJECTED' ? (
+        <>
+          <Field label="Rejected" value={formatDate(business.rejectedAt)} />
+          <Field label="Reason" value={business.rejectionReason} />
+        </>
+      ) : null}
 
       {error && <HelperText type="error">{error}</HelperText>}
 
-      <Divider style={styles.divider} />
-
-      <Button
-        mode="contained"
-        icon="check-circle-outline"
-        loading={approving}
-        disabled={busy}
-        onPress={onApprove}
-        style={styles.approve}
-      >
-        Approve &amp; publish
-      </Button>
-      <Button
-        mode="outlined"
-        icon="close-circle-outline"
-        textColor={theme.colors.error}
-        disabled={busy}
-        onPress={() => setRejectVisible(true)}
-        style={styles.reject}
-      >
-        Reject
-      </Button>
+      {isPending ? (
+        <>
+          <Divider style={styles.divider} />
+          <Button
+            mode="contained"
+            icon="check-circle-outline"
+            loading={approving}
+            disabled={busy}
+            onPress={onApprove}
+            style={styles.approve}
+          >
+            Approve &amp; publish
+          </Button>
+          <Button
+            mode="outlined"
+            icon="close-circle-outline"
+            textColor={theme.colors.error}
+            disabled={busy}
+            onPress={() => setRejectVisible(true)}
+            style={styles.reject}
+          >
+            Reject
+          </Button>
+        </>
+      ) : null}
 
       <Portal>
         <Dialog visible={rejectVisible} onDismiss={() => setRejectVisible(false)}>
           <Dialog.Title>Reject business?</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={styles.dialogText}>
-              Optionally tell the owner what to fix. They can update and resubmit.
+              Optionally record a reason (shown to the owner).
             </Text>
             <TextInput
               mode="outlined"
@@ -157,7 +168,12 @@ export default function BusinessReviewScreen({ route, navigation }: Props) {
             <Button onPress={() => setRejectVisible(false)} disabled={rejecting}>
               Cancel
             </Button>
-            <Button onPress={onReject} loading={rejecting} disabled={rejecting} textColor={theme.colors.error}>
+            <Button
+              onPress={onReject}
+              loading={rejecting}
+              disabled={rejecting}
+              textColor={theme.colors.error}
+            >
               Reject
             </Button>
           </Dialog.Actions>
@@ -183,11 +199,13 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   cover: { width: '100%', height: 160, borderRadius: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  chipText: { color: '#FFFFFF', fontWeight: '700' },
   muted: { color: theme.colors.onSurfaceVariant },
   divider: { marginVertical: spacing.sm },
   field: { marginBottom: spacing.sm },
-  hoursTitle: { marginTop: spacing.xs, marginBottom: spacing.xs },
   approve: { marginTop: spacing.sm },
   reject: { marginTop: spacing.sm, borderColor: theme.colors.error },
   dialogText: { marginBottom: spacing.sm },

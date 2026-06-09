@@ -106,9 +106,8 @@ async function main(): Promise<void> {
     console.error('business create failed', bizRes.status, JSON.stringify(bizRes.body));
   }
   const businessId = bizRes.body.business.id;
-  // Submit for review, then admin-approve -> ACTIVE (so the queue is joinable).
-  await agent.post(`${API}/businesses/${businessId}/submit`).set(bearer(owner.accessToken));
-  await agent.post(`${API}/businesses/${businessId}/approve`).set(bearer(adminToken));
+  // New businesses are PENDING_VERIFICATION; admin approves -> APPROVED (queue joinable).
+  await agent.patch(`${API}/admin/businesses/${businessId}/approve`).set(bearer(adminToken));
   const queueId = (
     await agent
       .post(`${API}/businesses/${businessId}/queues`)

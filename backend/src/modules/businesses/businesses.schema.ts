@@ -42,11 +42,6 @@ export const updateBusinessSchema = z
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'No fields to update' });
 
-/** Admin rejection: an optional reason shown back to the owner. */
-export const rejectBusinessSchema = z.object({
-  reason: z.string().max(500).optional(),
-});
-
 export const exploreQuerySchema = z.object({
   search: z.string().max(120).optional(),
   category: z.string().max(40).optional(),
@@ -61,5 +56,4 @@ export const businessIdParam = z.object({ id: z.string().length(24) });
 
 export type CreateBusinessDto = z.infer<typeof createBusinessSchema>;
 export type UpdateBusinessDto = z.infer<typeof updateBusinessSchema>;
-export type RejectBusinessDto = z.infer<typeof rejectBusinessSchema>;
 export type ExploreQuery = z.infer<typeof exploreQuerySchema>;

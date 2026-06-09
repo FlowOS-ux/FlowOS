@@ -67,15 +67,13 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Status (PENDING_VERIFICATION / APPROVED / REJECTED) is admin-controlled and
+  // read-only here — owners can edit profile/hours but cannot change status.
   const status = business.status;
-  // Going ACTIVE is admin-controlled. Owners can only submit for review,
-  // and only from DRAFT or REJECTED.
-  const canSubmit = status === 'DRAFT' || status === 'REJECTED';
 
   const updateDay = (index: number, patch: Partial<Required<BusinessHour>>) => {
     setHours((prev) => prev.map((day, i) => (i === index ? { ...day, ...patch } : day)));
@@ -142,27 +140,6 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
     }
   };
 
-  /** Save the latest edits, then submit the business for admin verification. */
-  const onSubmitForReview = async () => {
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setError(null);
-    setSubmitting(true);
-    try {
-      await businessApi.update(business.id, buildUpdateBody());
-      await businessApi.submitForReview(business.id);
-      setSuccess(true);
-      setTimeout(() => navigation.goBack(), 900);
-    } catch (err) {
-      setError(apiErrorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const onDelete = async () => {
     setError(null);
     setDeleting(true);
@@ -181,16 +158,12 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
 
   const statusNote = useMemo(() => {
     switch (status) {
-      case 'ACTIVE':
-        return 'Active — visible in Explore and open for customers to join queues.';
-      case 'PENDING_VERIFICATION':
-        return 'Submitted for review. An admin will approve or reject it shortly.';
+      case 'APPROVED':
+        return 'Approved — visible in Explore and open for customers to join queues.';
       case 'REJECTED':
-        return 'Not approved. Update your details below and resubmit for review.';
-      case 'SUSPENDED':
-        return 'Suspended by an admin and not visible to customers.';
+        return 'Not approved by the review team. See the reason below.';
       default:
-        return 'Draft — hidden from Explore. Submit for review to go live.';
+        return 'Your business is awaiting admin approval. You can still update its details.';
     }
   }, [status]);
 
@@ -291,39 +264,15 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
 
       {error && <HelperText type="error">{error}</HelperText>}
 
-      {canSubmit ? (
-        <>
-          <Button
-            mode="contained"
-            icon="send-check-outline"
-            loading={submitting}
-            disabled={submitting || loading}
-            onPress={onSubmitForReview}
-            style={styles.save}
-          >
-            {status === 'REJECTED' ? 'Resubmit for review' : 'Submit for review'}
-          </Button>
-          <Button
-            mode="text"
-            loading={loading}
-            disabled={loading || submitting}
-            onPress={onSave}
-            style={styles.saveDraft}
-          >
-            Save draft
-          </Button>
-        </>
-      ) : (
-        <Button
-          mode="contained"
-          loading={loading}
-          disabled={loading}
-          onPress={onSave}
-          style={styles.save}
-        >
-          Save changes
-        </Button>
-      )}
+      <Button
+        mode="contained"
+        loading={loading}
+        disabled={loading}
+        onPress={onSave}
+        style={styles.save}
+      >
+        Save changes
+      </Button>
 
       <Divider style={styles.divider} />
       <Button
@@ -389,7 +338,6 @@ const styles = StyleSheet.create({
   timeInput: { flex: 1 },
   closedToggle: { alignItems: 'center' },
   save: { marginTop: spacing.sm },
-  saveDraft: { marginTop: spacing.xs },
   deleteBtn: { marginTop: spacing.sm, borderColor: theme.colors.error },
   deleteNote: { textAlign: 'center' },
 });

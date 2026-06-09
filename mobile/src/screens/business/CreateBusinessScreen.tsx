@@ -1,7 +1,7 @@
 /**
  * FlowOS mobile - src/screens/business/CreateBusinessScreen.tsx
- * Business owner creates a new business (status starts as DRAFT; activation is part
- * of Business Setup). Uses the existing POST /businesses API.
+ * Business owner creates a new business. It is submitted for admin review
+ * (status PENDING_VERIFICATION) and goes live only once an admin approves it.
  */
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -75,8 +75,9 @@ export default function CreateBusinessScreen({ navigation }: Props) {
         location: lat.trim() ? { lat: Number(lat), lng: Number(lng) } : undefined,
       });
       setSuccess(true);
-      // Return to the dashboard, which refetches on focus and shows the new (DRAFT) business.
-      setTimeout(() => navigation.goBack(), 900);
+      // New businesses are submitted for admin review (PENDING_VERIFICATION).
+      // Return to the dashboard, which refetches on focus and shows the new business.
+      setTimeout(() => navigation.goBack(), 1200);
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {
@@ -150,8 +151,8 @@ export default function CreateBusinessScreen({ navigation }: Props) {
         Your business starts as a draft. You can add hours and activate it from Business Setup.
       </Text>
 
-      <Snackbar visible={success} onDismiss={() => setSuccess(false)} duration={900}>
-        Business created 🎉
+      <Snackbar visible={success} onDismiss={() => setSuccess(false)} duration={1200}>
+        Submitted for admin review 🎉
       </Snackbar>
     </Screen>
   );

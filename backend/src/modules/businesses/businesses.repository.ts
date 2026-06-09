@@ -30,6 +30,14 @@ export const businessesRepository = {
     return Business.find({ status }).sort({ updatedAt: -1 }).exec();
   },
 
+  /** Admin views: businesses of a status with the owner's contact details populated. */
+  listByStatusWithOwner(status: string): Promise<BusinessDoc[]> {
+    return Business.find({ status })
+      .populate('ownerId', 'name email phone')
+      .sort({ createdAt: -1 })
+      .exec();
+  },
+
   async search(params: {
     filter: FilterQuery<BusinessDoc>;
     skip: number;

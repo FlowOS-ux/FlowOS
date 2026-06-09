@@ -98,25 +98,37 @@ async function main(): Promise<void> {
   const refreshed = await agent.post(`${API}/auth/refresh`).send({ refreshToken: login.body.refreshToken });
   check(refreshed.status === 200 && !!refreshed.body.accessToken, 'refresh: rotates token');
 
-  // 4) Create + activate business
+  // 4) Create business -> PENDING_VERIFICATION; admin approves -> APPROVED
   const biz = await agent
     .post(`${API}/businesses`)
     .set(bearer(ownerToken))
     .send({ name: 'City Clinic', category: 'HOSPITAL', address: '1 Main St', location: { lat: 12.9, lng: 77.6 } });
-  check(biz.status === 201 && !!biz.body.business.id, 'business: created (DRAFT)');
+  check(
+    biz.status === 201 && biz.body.business.status === 'PENDING_VERIFICATION',
+    'business: created (PENDING_VERIFICATION)',
+  );
   const businessId = biz.body.business.id as string;
 
-  const submit = await agent.post(`${API}/businesses/${businessId}/submit`).set(bearer(ownerToken));
+  // Queue creation is blocked until the business is approved.
+  const earlyQueue = await agent
+    .post(`${API}/businesses/${businessId}/queues`)
+    .set(bearer(ownerToken))
+    .send({ name: 'Blocked', avgServiceSec: 60 });
+  check(earlyQueue.status === 403, 'guard: queue creation blocked while pending (403)');
+
+  // Admin sees it in the pending list, then approves it.
+  const pendingList = await agent.get(`${API}/admin/businesses/pending`).set(bearer(adminToken));
   check(
-    submit.status === 200 && submit.body.business.status === 'PENDING_VERIFICATION',
-    'business: submitted for review (PENDING_VERIFICATION)',
+    pendingList.status === 200 &&
+      pendingList.body.businesses.some((b: { id: string }) => b.id === businessId),
+    'admin: business appears in pending list',
   );
   const approve = await agent
-    .post(`${API}/businesses/${businessId}/approve`)
+    .patch(`${API}/admin/businesses/${businessId}/approve`)
     .set(bearer(adminToken));
   check(
-    approve.status === 200 && approve.body.business.status === 'ACTIVE',
-    'business: admin approved (ACTIVE)',
+    approve.status === 200 && approve.body.business.status === 'APPROVED',
+    'admin: approved -> APPROVED',
   );
 
   // 5) Create queue
@@ -165,23 +177,27 @@ async function main(): Promise<void> {
   const forbidden = await agent.post(`${API}/queues/${queueId}/call-next`).set(bearer(customerToken));
   check(forbidden.status === 403, 'rbac: customer cannot call-next (403)');
 
-  // 12) Join-guard: a brand-new DRAFT business cannot be joined.
-  const draftBiz = await agent
+  // 12) Operations guard: a brand-new PENDING business is blocked from queue creation.
+  const pendingBiz = await agent
     .post(`${API}/businesses`)
     .set(bearer(ownerToken))
-    .send({ name: 'Draft Clinic', category: 'HOSPITAL' });
-  const draftQueue = await agent
-    .post(`${API}/businesses/${draftBiz.body.business.id}/queues`)
+    .send({ name: 'Pending Clinic', category: 'HOSPITAL' });
+  const blockedQueue = await agent
+    .post(`${API}/businesses/${pendingBiz.body.business.id}/queues`)
     .set(bearer(ownerToken))
     .send({ name: 'General' });
-  const draftJoin = await agent
-    .post(`${API}/queues/${draftQueue.body.queue.id}/join`)
-    .set(bearer(customerToken));
-  check(draftJoin.status === 400, 'join: blocked when business not ACTIVE (400)');
+  check(
+    blockedQueue.status === 403,
+    'guard: pending business cannot create queues (403 Business approval is pending.)',
+  );
 
-  // 13) Admin RBAC: a non-admin cannot list the verification queue.
-  const ownerPending = await agent.get(`${API}/businesses/pending`).set(bearer(ownerToken));
+  // 13) Admin RBAC: a non-admin cannot use the verification API.
+  const ownerPending = await agent.get(`${API}/admin/businesses/pending`).set(bearer(ownerToken));
   check(ownerPending.status === 403, 'rbac: non-admin cannot list pending (403)');
+  const ownerApprove = await agent
+    .patch(`${API}/admin/businesses/${businessId}/approve`)
+    .set(bearer(ownerToken));
+  check(ownerApprove.status === 403, 'rbac: non-admin cannot approve (403)');
 
   await disconnectDB();
   await mongo.stop();

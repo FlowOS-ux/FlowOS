@@ -3,8 +3,7 @@
  * Queue creation and management (a "queue" is a service line within a business).
  */
 import { queuesRepository } from './queues.repository';
-import { businessesRepository } from '../businesses/businesses.repository';
-import { assertBusinessRole } from '../../lib/businessAccess';
+import { assertBusinessRole, assertBusinessApproved } from '../../lib/businessAccess';
 import { getRealtime } from '../../container';
 import { QUEUE_EVENTS, RT_EVENTS } from '../../services/realtime/realtime.interface';
 import { NotFoundError } from '../../lib/errors';
@@ -28,8 +27,8 @@ export function toPublicQueue(q: QueueDoc) {
 export const queuesService = {
   async create(userId: string, role: Role, businessId: string, dto: CreateQueueDto) {
     await assertBusinessRole(userId, businessId, 'MANAGER', role);
-    const business = await businessesRepository.findById(businessId);
-    if (!business) throw new NotFoundError('Business not found');
+    // Pending/rejected businesses cannot create queues.
+    await assertBusinessApproved(businessId);
 
     const queue = await queuesRepository.create({ businessId, ...dto });
     return toPublicQueue(queue);
@@ -50,6 +49,7 @@ export const queuesService = {
     const queue = await queuesRepository.findById(id);
     if (!queue) throw new NotFoundError('Queue not found');
     await assertBusinessRole(userId, String(queue.businessId), 'STAFF', role);
+    await assertBusinessApproved(String(queue.businessId));
 
     const prevStatus = queue.status;
     const updated = await queuesRepository.updateById(id, dto);

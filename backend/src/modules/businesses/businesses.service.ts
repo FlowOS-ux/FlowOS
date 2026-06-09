@@ -9,30 +9,9 @@ import { entriesRepository } from '../entries/entries.repository';
 import { membershipsRepository } from '../memberships/memberships.repository';
 import { StaffMember, type BusinessDoc } from '../../models';
 import { assertBusinessRole } from '../../lib/businessAccess';
-import { BadRequestError, NotFoundError } from '../../lib/errors';
-import { logger } from '../../lib/logger';
-import { notifications } from '../../container';
-import { SUBMITTABLE_STATUSES, type Role } from '../../types';
-import type {
-  CreateBusinessDto,
-  UpdateBusinessDto,
-  RejectBusinessDto,
-  ExploreQuery,
-} from './businesses.schema';
-
-/** Best-effort owner notification on a verification decision (never fails the request). */
-async function notifyOwner(
-  ownerId: string,
-  title: string,
-  body: string,
-  data: Record<string, unknown>,
-): Promise<void> {
-  try {
-    await notifications.notify(ownerId, { type: 'GENERIC', title, body, data });
-  } catch (err) {
-    logger.error({ err }, 'failed to notify business owner of verification decision');
-  }
-}
+import { NotFoundError } from '../../lib/errors';
+import { APPROVED_STATUS, type Role } from '../../types';
+import type { CreateBusinessDto, UpdateBusinessDto, ExploreQuery } from './businesses.schema';
 
 export function toPublicBusiness(b: BusinessDoc) {
   const coords = b.location?.coordinates ?? [0, 0];
@@ -48,6 +27,8 @@ export function toPublicBusiness(b: BusinessDoc) {
     hours: b.hours ?? [],
     status: b.status,
     rejectionReason: b.rejectionReason ?? null,
+    approvedAt: b.approvedAt ?? null,
+    rejectedAt: b.rejectedAt ?? null,
     ratingAvg: b.ratingAvg,
     ratingCount: b.ratingCount,
     ownerId: String(b.ownerId),
@@ -57,6 +38,8 @@ export function toPublicBusiness(b: BusinessDoc) {
 
 export const businessesService = {
   async register(ownerId: string, dto: CreateBusinessDto) {
+    // New businesses are submitted for admin review immediately — they are not
+    // live until an admin approves them.
     const business = await businessesRepository.create({
       name: dto.name,
       category: dto.category,
@@ -65,7 +48,7 @@ export const businessesService = {
       phone: dto.phone,
       logoUrl: dto.logoUrl,
       ownerId,
-      status: 'DRAFT',
+      status: 'PENDING_VERIFICATION',
       location: dto.location
         ? { type: 'Point', coordinates: [dto.location.lng, dto.location.lat] }
         : undefined,
@@ -96,77 +79,6 @@ export const businessesService = {
     return toPublicBusiness(business);
   },
 
-  // ---- Verification lifecycle ----
-
-  /** Owner submits a DRAFT/REJECTED business for admin review -> PENDING_VERIFICATION. */
-  async submitForReview(userId: string, role: Role, id: string) {
-    await assertBusinessRole(userId, id, 'MANAGER', role);
-    const business = await businessesRepository.findById(id);
-    if (!business) throw new NotFoundError('Business not found');
-
-    if (!SUBMITTABLE_STATUSES.includes(business.status)) {
-      throw new BadRequestError(
-        `A ${business.status} business cannot be submitted for review`,
-      );
-    }
-
-    const updated = await businessesRepository.updateById(id, {
-      status: 'PENDING_VERIFICATION',
-      rejectionReason: null,
-    });
-    return toPublicBusiness(updated!);
-  },
-
-  /** Admin: list businesses awaiting verification (RBAC enforced at the route). */
-  async listPending() {
-    const businesses = await businessesRepository.listByStatus('PENDING_VERIFICATION');
-    return businesses.map(toPublicBusiness);
-  },
-
-  /** Admin: approve a pending business -> ACTIVE (now discoverable + joinable). */
-  async approve(id: string) {
-    const business = await businessesRepository.findById(id);
-    if (!business) throw new NotFoundError('Business not found');
-    if (business.status !== 'PENDING_VERIFICATION') {
-      throw new BadRequestError('Only a business pending verification can be approved');
-    }
-
-    const updated = await businessesRepository.updateById(id, {
-      status: 'ACTIVE',
-      rejectionReason: null,
-    });
-    await notifyOwner(
-      String(updated!.ownerId),
-      'Business approved 🎉',
-      `${updated!.name} is now live and visible to customers.`,
-      { businessId: id, status: 'ACTIVE' },
-    );
-    return toPublicBusiness(updated!);
-  },
-
-  /** Admin: reject a pending business -> REJECTED (editable + resubmittable). */
-  async reject(id: string, dto: RejectBusinessDto) {
-    const business = await businessesRepository.findById(id);
-    if (!business) throw new NotFoundError('Business not found');
-    if (business.status !== 'PENDING_VERIFICATION') {
-      throw new BadRequestError('Only a business pending verification can be rejected');
-    }
-
-    const updated = await businessesRepository.updateById(id, {
-      status: 'REJECTED',
-      rejectionReason: dto.reason ?? null,
-    });
-    await notifyOwner(
-      String(updated!.ownerId),
-      'Business needs changes',
-      dto.reason
-        ? `${updated!.name} was not approved: ${dto.reason}`
-        : `${updated!.name} was not approved. Please review and resubmit.`,
-      { businessId: id, status: 'REJECTED' },
-    );
-    return toPublicBusiness(updated!);
-  },
-
   /** Owner-only hard delete. Cascades to queues, their entries, and staff memberships. */
   async remove(userId: string, role: Role, id: string) {
     await assertBusinessRole(userId, id, 'OWNER', role);
@@ -187,7 +99,7 @@ export const businessesService = {
   },
 
   async explore(query: ExploreQuery) {
-    const filter: FilterQuery<BusinessDoc> = { status: 'ACTIVE' };
+    const filter: FilterQuery<BusinessDoc> = { status: APPROVED_STATUS };
     if (query.category) filter.category = query.category;
     if (query.search) filter.name = { $regex: query.search, $options: 'i' };
 

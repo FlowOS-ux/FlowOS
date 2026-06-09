@@ -1,33 +1,56 @@
 /**
  * FlowOS mobile - src/screens/admin/AdminDashboardScreen.tsx
- * Platform-admin verification queue: businesses that owners submitted for review.
- * Tap a business to open the review screen (approve / reject).
+ * Platform-admin verification dashboard. A segmented filter switches between the
+ * Pending / Approved / Rejected business queues. Tap a business to review it.
  */
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator, Button } from 'react-native-paper';
+import {
+  Text,
+  Card,
+  Chip,
+  Button,
+  ActivityIndicator,
+  SegmentedButtons,
+} from 'react-native-paper';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Screen from '../../components/Screen';
 import { adminApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
 import { theme, spacing, statusColors, businessStatusLabels } from '../../theme';
-import type { Business } from '../../api/types';
+import type { AdminBusiness } from '../../api/types';
 import type { AdminStackParamList } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<AdminStackParamList>;
+type Filter = 'pending' | 'approved' | 'rejected';
+
+const LOADERS: Record<Filter, () => Promise<AdminBusiness[]>> = {
+  pending: adminApi.pendingBusinesses,
+  approved: adminApi.approvedBusinesses,
+  rejected: adminApi.rejectedBusinesses,
+};
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString();
+  } catch {
+    return '';
+  }
+}
 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<Nav>();
-  const [pending, setPending] = useState<Business[]>([]);
+  const [filter, setFilter] = useState<Filter>('pending');
+  const [businesses, setBusinesses] = useState<AdminBusiness[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (f: Filter) => {
     try {
-      const businesses = await adminApi.pendingBusinesses();
-      setPending(businesses);
+      const list = await LOADERS[f]();
+      setBusinesses(list);
       setError(null);
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -37,82 +60,92 @@ export default function AdminDashboardScreen() {
     }
   }, []);
 
+  // Reloads on focus and whenever the filter changes.
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      setLoading(true);
+      load(filter);
+    }, [load, filter]),
   );
 
   const onRefresh = () => {
     setRefreshing(true);
-    load();
+    load(filter);
   };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={theme.colors.primary} />
-      </View>
-    );
-  }
 
   return (
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
-      <View style={styles.header}>
-        <Text variant="titleLarge">Verification queue</Text>
-        <Chip compact>{pending.length} pending</Chip>
-      </View>
+      <Text variant="titleLarge">Business verification</Text>
+      <SegmentedButtons
+        value={filter}
+        onValueChange={(v) => setFilter(v as Filter)}
+        buttons={[
+          { value: 'pending', label: 'Pending' },
+          { value: 'approved', label: 'Approved' },
+          { value: 'rejected', label: 'Rejected' },
+        ]}
+      />
 
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      {!error && pending.length === 0 && (
-        <Text style={styles.empty}>No businesses awaiting review 🎉</Text>
-      )}
-
-      {pending.map((business) => (
-        <Card key={business.id} style={styles.card}>
-          <Card.Title
-            title={business.name}
-            subtitle={business.category}
-            right={() => (
-              <Chip
-                compact
-                textStyle={styles.statusChipText}
-                style={[styles.statusChip, { backgroundColor: statusColors[business.status] }]}
-              >
-                {businessStatusLabels[business.status] ?? business.status}
-              </Chip>
-            )}
-          />
-          {business.description ? (
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={theme.colors.primary} />
+        </View>
+      ) : error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : businesses.length === 0 ? (
+        <Text style={styles.empty}>
+          {filter === 'pending'
+            ? 'No businesses awaiting review 🎉'
+            : `No ${filter} businesses.`}
+        </Text>
+      ) : (
+        businesses.map((b) => (
+          <Card key={b.id} style={styles.card}>
+            <Card.Title
+              title={b.name}
+              subtitle={b.category}
+              right={() => (
+                <Chip
+                  compact
+                  textStyle={styles.statusChipText}
+                  style={[styles.statusChip, { backgroundColor: statusColors[b.status] }]}
+                >
+                  {businessStatusLabels[b.status] ?? b.status}
+                </Chip>
+              )}
+            />
             <Card.Content>
-              <Text variant="bodySmall" numberOfLines={2} style={styles.muted}>
-                {business.description}
+              <Text variant="bodyMedium">{b.owner.name ?? 'Unknown owner'}</Text>
+              <Text variant="bodySmall" style={styles.muted}>
+                {b.owner.email ?? '—'}
+                {b.phone ? ` · ${b.phone}` : ''}
+              </Text>
+              <Text variant="bodySmall" style={styles.muted}>
+                Submitted {formatDate(b.submittedAt)}
               </Text>
             </Card.Content>
-          ) : null}
-          <Card.Actions>
-            <Button
-              mode="contained-tonal"
-              icon="clipboard-text-search-outline"
-              onPress={() => navigation.navigate('BusinessReview', { business })}
-            >
-              Review
-            </Button>
-          </Card.Actions>
-        </Card>
-      ))}
+            <Card.Actions>
+              <Button
+                mode={b.status === 'PENDING_VERIFICATION' ? 'contained-tonal' : 'text'}
+                icon="clipboard-text-search-outline"
+                onPress={() => navigation.navigate('BusinessReview', { business: b })}
+              >
+                {b.status === 'PENDING_VERIFICATION' ? 'Review' : 'View'}
+              </Button>
+            </Card.Actions>
+          </Card>
+        ))
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  center: { paddingVertical: spacing.xl, alignItems: 'center' },
   card: { backgroundColor: theme.colors.surface },
   statusChip: { marginRight: spacing.xs },
   statusChipText: { color: '#FFFFFF', fontWeight: '700', fontSize: 11 },
   muted: { color: theme.colors.onSurfaceVariant },
   empty: { textAlign: 'center', marginTop: spacing.xl, color: theme.colors.onSurfaceVariant },
-  error: { color: theme.colors.error },
+  error: { color: theme.colors.error, marginTop: spacing.md },
 });

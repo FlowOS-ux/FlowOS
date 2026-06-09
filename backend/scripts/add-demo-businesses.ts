@@ -95,7 +95,7 @@ async function main(): Promise<void> {
         {
           $set: {
             logoUrl: b.logoUrl,
-            status: 'ACTIVE',
+            status: 'APPROVED',
             category: b.category,
             address: b.address,
             location: { type: 'Point', coordinates: b.coordinates },
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
       address: b.address,
       location: { type: 'Point', coordinates: b.coordinates },
       logoUrl: b.logoUrl,
-      status: 'ACTIVE',
+      status: 'APPROVED',
       ratingAvg: b.ratingAvg,
       ratingCount: b.ratingCount,
     });

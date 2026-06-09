@@ -39,18 +39,15 @@ export const statusColors: Record<string, string> = {
   OPEN: '#16A34A',
   PAUSED: '#F59E0B',
   CLOSED: '#94A3B8',
-  ACTIVE: '#16A34A',
-  DRAFT: '#94A3B8',
+  // Business verification statuses.
   PENDING_VERIFICATION: '#F59E0B',
+  APPROVED: '#16A34A',
   REJECTED: '#EF4444',
-  SUSPENDED: '#EF4444',
 };
 
 /** Short, friendly labels for business statuses (chips/badges). */
 export const businessStatusLabels: Record<string, string> = {
-  DRAFT: 'Draft',
   PENDING_VERIFICATION: 'Pending review',
-  ACTIVE: 'Active',
+  APPROVED: 'Approved',
   REJECTED: 'Rejected',
-  SUSPENDED: 'Suspended',
 };

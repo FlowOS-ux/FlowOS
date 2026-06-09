@@ -335,7 +335,7 @@ async function main(): Promise<void> {
       location: { type: 'Point', coordinates: def.coords },
       logoUrl: def.image,
       hours: def.hours,
-      status: 'ACTIVE',
+      status: 'APPROVED',
       ratingAvg: def.ratingAvg,
       ratingCount: def.ratingCount,
     });

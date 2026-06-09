@@ -1,7 +1,8 @@
 /**
  * FlowOS backend - tests/integration/queueGuard.test.ts
- * Phase 2A guard: a customer cannot join a queue whose business is not ACTIVE.
- * Mirrors the smoke assertion as a first-class regression test.
+ * Business-approval gate on operations: a business that is not APPROVED cannot
+ * create queues (403 "Business approval is pending."); once an admin approves it,
+ * queue creation and customer joins work.
  */
 import {
   setupTestApp,
@@ -22,7 +23,7 @@ beforeAll(async () => {
 afterAll(teardownTestApp);
 afterEach(clearDb);
 
-async function seedOwnerCustomerQueue() {
+async function seedOwnerCustomerBusiness() {
   const owner = await registerAndLogin(ctx.agent, {
     name: 'Olivia Owner',
     email: 'owner@flowos.test',
@@ -34,46 +35,52 @@ async function seedOwnerCustomerQueue() {
     email: 'cara@flowos.test',
     password: 'password123',
   });
-
   const biz = await ctx.agent
     .post(`${API}/businesses`)
     .set(bearer(owner.accessToken))
     .send({ name: 'Test Clinic', category: 'HOSPITAL' });
-  const businessId = biz.body.business.id as string;
-
-  const queue = await ctx.agent
-    .post(`${API}/businesses/${businessId}/queues`)
-    .set(bearer(owner.accessToken))
-    .send({ name: 'General', avgServiceSec: 120 });
-  const queueId = queue.body.queue.id as string;
 
   return {
     ownerToken: owner.accessToken,
     customerToken: customer.accessToken,
-    businessId,
-    queueId,
+    businessId: biz.body.business.id as string,
   };
 }
 
-describe('join guard (business must be ACTIVE)', () => {
-  it('blocks joining a DRAFT business with 400', async () => {
-    const { customerToken, queueId } = await seedOwnerCustomerQueue();
-    const res = await ctx.agent.post(`${API}/queues/${queueId}/join`).set(bearer(customerToken));
-    expect(res.status).toBe(400);
+async function approveBusiness(businessId: string) {
+  const admin = await createAdminAndLogin(ctx.agent);
+  return ctx.agent
+    .patch(`${API}/admin/businesses/${businessId}/approve`)
+    .set(bearer(admin.accessToken));
+}
+
+describe('business-approval gate on operations', () => {
+  it('blocks queue creation while the business is PENDING (403)', async () => {
+    const { ownerToken, businessId } = await seedOwnerCustomerBusiness();
+    const res = await ctx.agent
+      .post(`${API}/businesses/${businessId}/queues`)
+      .set(bearer(ownerToken))
+      .send({ name: 'General' });
+    expect(res.status).toBe(403);
+    expect(res.body.error.message).toBe('Business approval is pending.');
   });
 
-  it('allows joining once the business is approved (ACTIVE)', async () => {
-    const { ownerToken, customerToken, businessId, queueId } = await seedOwnerCustomerQueue();
-    const adminToken = (await createAdminAndLogin(ctx.agent)).accessToken;
+  it('allows queue creation + customer join once approved', async () => {
+    const { ownerToken, customerToken, businessId } = await seedOwnerCustomerBusiness();
 
-    await ctx.agent.post(`${API}/businesses/${businessId}/submit`).set(bearer(ownerToken));
-    const approve = await ctx.agent
-      .post(`${API}/businesses/${businessId}/approve`)
-      .set(bearer(adminToken));
+    const approve = await approveBusiness(businessId);
     expect(approve.status).toBe(200);
-    expect(approve.body.business.status).toBe('ACTIVE');
+    expect(approve.body.business.status).toBe('APPROVED');
 
-    const join = await ctx.agent.post(`${API}/queues/${queueId}/join`).set(bearer(customerToken));
+    const queue = await ctx.agent
+      .post(`${API}/businesses/${businessId}/queues`)
+      .set(bearer(ownerToken))
+      .send({ name: 'General', avgServiceSec: 120 });
+    expect(queue.status).toBe(201);
+
+    const join = await ctx.agent
+      .post(`${API}/queues/${queue.body.queue.id}/join`)
+      .set(bearer(customerToken));
     expect(join.status).toBe(201);
     expect(join.body.entry.status).toBe('WAITING');
     expect(join.body.entry.position).toBe(1);

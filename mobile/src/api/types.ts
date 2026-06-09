@@ -42,12 +42,7 @@ export interface RegisterResult {
   devCode?: string;
 }
 
-export type BusinessStatus =
-  | 'DRAFT'
-  | 'PENDING_VERIFICATION'
-  | 'ACTIVE'
-  | 'REJECTED'
-  | 'SUSPENDED';
+export type BusinessStatus = 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED';
 
 export interface BusinessHour {
   dayOfWeek: number; // 0 = Sunday ... 6 = Saturday
@@ -68,9 +63,29 @@ export interface Business {
   hours: BusinessHour[];
   status: BusinessStatus;
   rejectionReason: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
   ratingAvg: number;
   ratingCount: number;
   ownerId: string;
+}
+
+/** Admin-facing business view (verification dashboard): includes owner contact + audit. */
+export interface AdminBusiness {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  address: string | null;
+  location: { lat: number; lng: number };
+  phone: string | null;
+  logoUrl: string | null;
+  status: BusinessStatus;
+  rejectionReason: string | null;
+  submittedAt: string;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  owner: { id: string; name: string | null; email: string | null; phone: string | null };
 }
 
 export interface Queue {

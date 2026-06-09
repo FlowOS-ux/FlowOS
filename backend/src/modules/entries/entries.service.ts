@@ -11,7 +11,7 @@ import { AnalyticsEvent, type QueueDoc, type QueueEntryDoc } from '../../models'
 import { getRealtime } from '../../container';
 import { notifications } from '../../container';
 import { RT_EVENTS, QUEUE_EVENTS } from '../../services/realtime/realtime.interface';
-import { assertBusinessRole } from '../../lib/businessAccess';
+import { assertBusinessRole, assertBusinessApproved } from '../../lib/businessAccess';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import type { Role } from '../../types';
@@ -107,9 +107,9 @@ export const entriesService = {
     const queue = await getQueueOrThrow(queueId);
     if (queue.status !== 'OPEN') throw new BadRequestError('This queue is not currently open');
 
-    // Only ACTIVE businesses accept customers (DRAFT/SUSPENDED are not joinable).
+    // Only APPROVED businesses accept customers (pending/rejected are not joinable).
     const business = await businessesRepository.findById(String(queue.businessId));
-    if (!business || business.status !== 'ACTIVE') {
+    if (!business || business.status !== 'APPROVED') {
       throw new BadRequestError('This business is not currently accepting customers');
     }
 
@@ -187,6 +187,7 @@ export const entriesService = {
   async listForOperator(userId: string, role: Role, queueId: string) {
     const queue = await getQueueOrThrow(queueId);
     await assertBusinessRole(userId, String(queue.businessId), 'STAFF', role);
+    await assertBusinessApproved(String(queue.businessId));
 
     const entries = await entriesRepository.listActiveByQueue(queueId);
     let waitingSeen = 0;
@@ -205,6 +206,7 @@ export const entriesService = {
   async callNext(userId: string, role: Role, queueId: string) {
     const queue = await getQueueOrThrow(queueId);
     await assertBusinessRole(userId, String(queue.businessId), 'STAFF', role);
+    await assertBusinessApproved(String(queue.businessId));
 
     const called = await entriesRepository.callOldestWaiting(queueId, new Date());
     if (!called) throw new BadRequestError('No customers are waiting');
@@ -241,6 +243,7 @@ export const entriesService = {
     if (!entry) throw new NotFoundError('Entry not found');
     const queue = await getQueueOrThrow(String(entry.queueId));
     await assertBusinessRole(userId, String(queue.businessId), 'STAFF', role);
+    await assertBusinessApproved(String(queue.businessId));
     if (entry.status !== 'CALLED') throw new BadRequestError('Entry must be CALLED before serving');
 
     const updated = await entriesRepository.updateById(entryId, 'SERVING', {
@@ -262,6 +265,7 @@ export const entriesService = {
     if (!entry) throw new NotFoundError('Entry not found');
     const queue = await getQueueOrThrow(String(entry.queueId));
     await assertBusinessRole(userId, String(queue.businessId), 'STAFF', role);
+    await assertBusinessApproved(String(queue.businessId));
     if (!['CALLED', 'SERVING'].includes(entry.status)) {
       throw new BadRequestError('Entry must be CALLED or SERVING to complete');
     }
@@ -306,6 +310,7 @@ export const entriesService = {
     if (!entry) throw new NotFoundError('Entry not found');
     const queue = await getQueueOrThrow(String(entry.queueId));
     await assertBusinessRole(userId, String(queue.businessId), 'STAFF', role);
+    await assertBusinessApproved(String(queue.businessId));
     if (entry.status !== 'CALLED') throw new BadRequestError('Only a CALLED entry can be a no-show');
 
     const updated = await entriesRepository.updateById(entryId, 'NO_SHOW');
