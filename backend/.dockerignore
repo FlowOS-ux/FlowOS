@@ -1,0 +1,9 @@
+node_modules
+dist
+uploads
+*.log
+.env
+.env.*
+tests
+coverage
+.gradle

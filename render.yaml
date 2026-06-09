@@ -1,0 +1,23 @@
+# FlowOS — Render Blueprint (https://render.com).
+# In Render: New > Blueprint > connect this repo. Render reads this file and creates
+# the service. You only need to paste MONGODB_URI (from MongoDB Atlas) afterwards.
+services:
+  - type: web
+    name: flowos-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npx tsx src/server.ts
+    healthCheckPath: /api/v1/system/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: JWT_SECRET
+        generateValue: true # Render generates a secure random value
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false # set this manually in the dashboard (your Atlas connection string)
