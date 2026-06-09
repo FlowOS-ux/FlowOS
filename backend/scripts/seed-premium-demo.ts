@@ -2,10 +2,10 @@
  * FlowOS - scripts/seed-premium-demo.ts
  * Premium, globally-branded demo dataset for investor/client demos & screenshots.
  *
- * Resets demo collections, then creates 10 pre-APPROVED businesses (idempotent —
- * skips any whose name already exists) across Banking, Restaurant, Salon & Spa,
- * Healthcare, Education, and Government — each with:
- *   - a realistic profile (premium no-people category image, contact, hours, email, website)
+ * Resets demo collections, then creates 10 pre-APPROVED businesses in Hyderabad,
+ * India (idempotent — skips any whose name already exists) across Banking,
+ * Restaurant, Salon & Spa, Healthcare, Hotel, and Jewellery — each with:
+ *   - a realistic profile (premium people-free category interior image, contact, hours, email, website)
  *   - 3 queues with realistic capacity / average service time
  *   - live queue entries (WAITING / CALLED / SERVING) + historical COMPLETED / NO_SHOW
  *   - 15-30 reviews (ratings 4.2-5.0, recent dates) with consistent rating aggregates
@@ -39,6 +39,7 @@ const URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/flowos';
 const ADMIN_EMAIL = 'sreelekhaac2427@gmail.com';
 
 // ---- helpers ----
+// Premium, people-free category interiors (curated Unsplash; all verified to load).
 const un = (id: string) => `https://images.unsplash.com/${id}?w=1200&h=600&fit=crop&q=80&auto=format`;
 const randInt = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1));
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -71,18 +72,18 @@ const HOURS = {
   restaurant: hours('11:30', '23:30', []),
   salon: hours('10:00', '20:00', [1]),
   hospital: hours('08:00', '21:00', []),
-  education: hours('09:00', '17:00', [0, 6]),
-  government: hours('09:00', '16:30', [0, 6]),
+  hotel: hours('00:00', '23:59', []),
+  jewellery: hours('10:30', '20:00', []),
 };
 
-// Premium, people-free category images (Unsplash). Swap centrally if desired.
+// Premium category interiors (no people). One image field (logoUrl) = logo + cover.
 const IMAGES: Record<string, string[]> = {
   BANK: [un('photo-1554224155-6726b3ff858f'), un('photo-1556742502-ec7c0e9f34b1')],
   RESTAURANT: [un('photo-1585937421612-70a008356fbe'), un('photo-1631452180519-c014fe946bc7')],
   SALON: [un('photo-1560066984-138dadb4c035'), un('photo-1540555700478-4be289fbecef')],
   HOSPITAL: [un('photo-1519494026892-80bbd2d6fd0d'), un('photo-1538108149393-fbbd81895907')],
-  EDUCATION: [un('photo-1562774053-701939374585')],
-  GOVERNMENT: [un('photo-1587474260584-136574528ed5')],
+  HOTEL: [un('photo-1566073771259-6a8506099945'), un('photo-1551882547-ff40c63fe5fa')],
+  JEWELLERY: [un('photo-1515562141207-7a88fb7ce338'), un('photo-1605100804763-247f67b3557e')],
 };
 
 interface QueueDef {
@@ -111,15 +112,15 @@ const HEALTH_Q: QueueDef[] = [
   { name: 'Specialist Consultation', desc: 'Consult a specialist doctor.', avg: 600, cap: 20 },
   { name: 'Diagnostics & Lab', desc: 'Sample collection and diagnostics.', avg: 240, cap: 35 },
 ];
-const EDU_Q: QueueDef[] = [
-  { name: 'Admissions Support', desc: 'Course and admission guidance.', avg: 420, cap: 40 },
-  { name: 'Student Services', desc: 'ID cards, letters, and general help.', avg: 300, cap: 30 },
-  { name: 'Records & Fees', desc: 'Fee payment and academic records.', avg: 240, cap: 50 },
+const HOTEL_Q: QueueDef[] = [
+  { name: 'Check-in & Reception', desc: 'Guest check-in and front desk.', avg: 240, cap: 30 },
+  { name: 'Concierge Services', desc: 'Bookings, transport, and assistance.', avg: 360, cap: 20 },
+  { name: 'Spa & Leisure', desc: 'Spa, pool, and leisure reservations.', avg: 2400, cap: 10 },
 ];
-const GOVT_Q: QueueDef[] = [
-  { name: 'Document Verification', desc: 'Verify and attest documents.', avg: 360, cap: 50 },
-  { name: 'Citizen Support', desc: 'General citizen assistance.', avg: 480, cap: 30 },
-  { name: 'Certificate Services', desc: 'Apply for and collect certificates.', avg: 600, cap: 40 },
+const JEWEL_Q: QueueDef[] = [
+  { name: 'Consultation Desk', desc: 'Browse collections with an advisor.', avg: 600, cap: 20 },
+  { name: 'Custom Design Studio', desc: 'Bespoke jewellery design.', avg: 1800, cap: 8 },
+  { name: 'Collection & Pickup', desc: 'Collect orders and repairs.', avg: 300, cap: 25 },
 ];
 
 interface BizDef {
@@ -136,146 +137,147 @@ interface BizDef {
   queues: QueueDef[];
 }
 
+// All businesses are located in Hyderabad, India.
 const BUSINESSES: BizDef[] = [
   {
     name: 'Prestige Financial Center',
     category: 'BANK',
-    ownerName: 'Jonathan Pierce',
+    ownerName: 'Rohan Kapoor',
     description:
       'Premier private banking and wealth management with concierge-level service for discerning clients.',
-    address: '120 Park Avenue, New York, NY 10017',
-    phone: '+1 212 555 0110',
+    address: 'Road No. 1, Banjara Hills, Hyderabad 500034',
+    phone: '+91 40 4455 1100',
     email: 'concierge@prestigefinancial.com',
     website: 'https://prestigefinancial.com',
-    coords: [-73.9772, 40.7527],
+    coords: [78.4347, 17.4156],
     hours: HOURS.bank,
     queues: BANK_Q,
   },
   {
     name: 'Premier Banking Hub',
     category: 'BANK',
-    ownerName: 'Eleanor Whitfield',
+    ownerName: 'Ayesha Siddiqui',
     description:
       'A full-service premier banking hub with dedicated relationship managers and priority desks.',
-    address: '1 Canada Square, Canary Wharf, London E14 5AB',
-    phone: '+44 20 7946 0220',
+    address: 'Financial District, Nanakramguda, Hyderabad 500032',
+    phone: '+91 40 4455 2200',
     email: 'hello@premierbankinghub.com',
     website: 'https://premierbankinghub.com',
-    coords: [-0.0195, 51.5049],
+    coords: [78.3421, 17.4159],
     hours: HOURS.bank,
     queues: BANK_Q,
   },
   {
     name: 'The Grand Table',
     category: 'RESTAURANT',
-    ownerName: 'Marco Albright',
+    ownerName: 'Arjun Reddy',
     description:
       'Contemporary fine dining with a seasonal tasting menu and an award-winning wine cellar.',
-    address: '55 Collins Street, Melbourne VIC 3000',
-    phone: '+61 3 9000 7777',
+    address: 'Road No. 12, Jubilee Hills, Hyderabad 500033',
+    phone: '+91 40 4001 7777',
     email: 'reservations@thegrandtable.com',
     website: 'https://thegrandtable.com',
-    coords: [144.9709, -37.8142],
+    coords: [78.4738, 17.4239],
     hours: HOURS.restaurant,
     queues: REST_Q,
   },
   {
     name: 'Signature Dining Lounge',
     category: 'RESTAURANT',
-    ownerName: 'Sofia Reyes',
+    ownerName: 'Sneha Iyer',
     description:
       'An elegant lounge for signature plates, craft cocktails, and curated wine pairings.',
-    address: '12 Marina Boulevard, Singapore 018980',
-    phone: '+65 6000 8888',
+    address: 'DLF Cyber City, Gachibowli, Hyderabad 500032',
+    phone: '+91 40 4002 8888',
     email: 'dine@signaturelounge.com',
     website: 'https://signaturelounge.com',
-    coords: [103.8607, 1.282],
+    coords: [78.3489, 17.4401],
     hours: HOURS.restaurant,
     queues: REST_Q,
   },
   {
     name: 'Luxe Beauty & Wellness',
     category: 'SALON',
-    ownerName: 'Camille Laurent',
+    ownerName: 'Priya Menon',
     description:
       'A luxury salon and wellness destination for hair, skin, and bespoke beauty rituals.',
-    address: '8 Rue Saint-Honoré, 75001 Paris',
-    phone: '+33 1 70 00 90 01',
+    address: 'Road No. 36, Jubilee Hills, Hyderabad 500033',
+    phone: '+91 40 4567 9001',
     email: 'care@luxebeauty.com',
     website: 'https://luxebeauty.com',
-    coords: [2.3364, 48.8627],
+    coords: [78.41, 17.43],
     hours: HOURS.salon,
     queues: SALON_Q,
   },
   {
     name: 'Elite Spa Retreat',
     category: 'SALON',
-    ownerName: 'Hannah Bauer',
+    ownerName: 'Kavya Nair',
     description:
       'A serene spa retreat offering massage, hydrotherapy, and holistic wellness programs.',
-    address: '200 Beach Road, Dubai',
-    phone: '+971 4 000 9002',
+    address: 'Hitech City Road, Madhapur, Hyderabad 500081',
+    phone: '+91 40 4567 9002',
     email: 'relax@elitesparetreat.com',
     website: 'https://elitesparetreat.com',
-    coords: [55.2708, 25.2048],
+    coords: [78.3915, 17.4483],
     hours: HOURS.salon,
     queues: SALON_Q,
   },
   {
     name: 'Elite Medical Center',
     category: 'HOSPITAL',
-    ownerName: 'Dr. Alan Whitmore',
+    ownerName: 'Dr. Vikram Rao',
     description:
       'A premium multispecialty medical center with advanced diagnostics and specialist care.',
-    address: '500 Howard Street, San Francisco, CA 94105',
-    phone: '+1 415 555 5000',
+    address: 'Raj Bhavan Road, Somajiguda, Hyderabad 500082',
+    phone: '+91 40 2334 5000',
     email: 'appointments@elitemedical.com',
     website: 'https://elitemedical.com',
-    coords: [-122.399, 37.788],
+    coords: [78.4561, 17.4239],
     hours: HOURS.hospital,
     queues: HEALTH_Q,
   },
   {
     name: 'Signature Multispeciality Clinic',
     category: 'HOSPITAL',
-    ownerName: 'Dr. Olivia Bennett',
+    ownerName: 'Dr. Meera Joshi',
     description:
       'A signature multispeciality clinic delivering personalised, premium healthcare and diagnostics.',
-    address: '90 Bloor Street West, Toronto, ON M5S 1M4',
-    phone: '+1 416 555 6000',
+    address: 'Sarath City Road, Kondapur, Hyderabad 500084',
+    phone: '+91 40 2334 6000',
     email: 'care@signatureclinic.com',
     website: 'https://signatureclinic.com',
-    coords: [-79.3884, 43.67],
+    coords: [78.3677, 17.4615],
     hours: HOURS.hospital,
     queues: HEALTH_Q,
   },
   {
-    name: 'Excellence Student Services Center',
-    category: 'EDUCATION',
-    ownerName: 'Margaret Sullivan',
+    name: 'The Deccan Grand Hotel',
+    category: 'HOTEL',
+    ownerName: 'Vikram Mehta',
     description:
-      'A modern campus service center for admissions, student support, and academic records.',
-    address: '1 University Plaza, Boston, MA 02115',
-    phone: '+1 617 555 4567',
-    email: 'support@excellencestudent.edu',
-    website: 'https://excellencestudent.edu',
-    coords: [-71.0942, 42.3399],
-    hours: HOURS.education,
-    queues: EDU_Q,
+      'A five-star luxury hotel offering refined suites, fine dining, and a signature wellness spa.',
+    address: 'Necklace Road, Banjara Hills, Hyderabad 500034',
+    phone: '+91 40 6688 1000',
+    email: 'reservations@deccangrand.com',
+    website: 'https://deccangrand.com',
+    coords: [78.438, 17.418],
+    hours: HOURS.hotel,
+    queues: HOTEL_Q,
   },
   {
-    name: 'Citizen Service Center',
-    category: 'GOVERNMENT',
-    ownerName: 'David Thompson',
+    name: 'Hyderabad Heritage Jewellery',
+    category: 'JEWELLERY',
+    ownerName: 'Anita Deshmukh',
     description:
-      'A one-stop government service center for citizen support, document verification, and certificates.',
-    address: '300 Civic Plaza, Sydney NSW 2000',
-    phone: '+61 2 9000 0000',
-    email: 'help@citizenservice.gov',
-    website: 'https://citizenservice.gov',
-    coords: [151.2093, -33.8688],
-    hours: HOURS.government,
-    queues: GOVT_Q,
+      'A heritage luxury jewellery house specialising in fine gold, diamonds, and bespoke design.',
+    address: 'Road No. 10, Jubilee Hills, Hyderabad 500033',
+    phone: '+91 40 6688 2000',
+    email: 'contact@heritagejewellery.com',
+    website: 'https://heritagejewellery.com',
+    coords: [78.47, 17.426],
+    hours: HOURS.jewellery,
+    queues: JEWEL_Q,
   },
 ];
 
@@ -522,7 +524,8 @@ async function main(): Promise<void> {
 
     const idx = catIndex[def.category] ?? 0;
     catIndex[def.category] = idx + 1;
-    const image = (IMAGES[def.category] ?? [])[idx % (IMAGES[def.category]?.length || 1)];
+    const imgs = IMAGES[def.category] ?? [];
+    const image = imgs[idx % imgs.length];
 
     // Pre-approved business (status APPROVED == live/active) with audit trail.
     const biz: BusinessDoc = await Business.create({
