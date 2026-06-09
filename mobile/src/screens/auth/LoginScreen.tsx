@@ -3,12 +3,12 @@
  */
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, TextInput, Button, HelperText } from 'react-native-paper';
+import { Text, TextInput, Button, HelperText, Avatar } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Screen from '../../components/Screen';
 import { useAuth } from '../../auth/AuthContext';
-import { apiErrorMessage } from '../../api/client';
-import { spacing } from '../../theme';
+import { apiErrorMessage, apiErrorCode, apiErrorDevCode } from '../../api/client';
+import { theme, spacing } from '../../theme';
 import type { AuthStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -26,6 +26,11 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       await login(email.trim(), password);
     } catch (err) {
+      // Unverified accounts: the backend just re-sent a code — send them to verify.
+      if (apiErrorCode(err) === 'EMAIL_NOT_VERIFIED') {
+        navigation.navigate('VerifyEmail', { email: email.trim(), devCode: apiErrorDevCode(err) });
+        return;
+      }
       setError(apiErrorMessage(err));
     } finally {
       setLoading(false);
@@ -35,6 +40,7 @@ export default function LoginScreen({ navigation }: Props) {
   return (
     <Screen scroll>
       <View style={styles.header}>
+        <Avatar.Icon size={80} icon="ticket-confirmation" color="#FFFFFF" style={styles.logo} />
         <Text variant="displaySmall" style={styles.brand}>
           FlowOS
         </Text>
@@ -70,6 +76,7 @@ export default function LoginScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  header: { marginBottom: spacing.lg, marginTop: spacing.xl, gap: spacing.xs },
+  header: { alignItems: 'center', marginBottom: spacing.lg, marginTop: spacing.xl, gap: spacing.xs },
+  logo: { backgroundColor: theme.colors.primary, marginBottom: spacing.sm },
   brand: { fontWeight: '800' },
 });

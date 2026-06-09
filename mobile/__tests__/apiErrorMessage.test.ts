@@ -18,6 +18,24 @@ describe('apiErrorMessage', () => {
     expect(apiErrorMessage(err)).toBe('This business is not currently accepting customers');
   });
 
+  it('surfaces the first field-level validation issue when details are present', () => {
+    const err = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 422,
+      statusText: 'Unprocessable Entity',
+      headers: {},
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      config: {} as any,
+      data: {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          details: [{ path: ['password'], message: 'Too small: expected at least 8 characters' }],
+        },
+      },
+    });
+    expect(apiErrorMessage(err)).toBe('password: Too small: expected at least 8 characters');
+  });
+
   it('falls back to the axios error message when there is no envelope', () => {
     const err = new AxiosError('Network Error');
     expect(apiErrorMessage(err)).toBe('Network Error');

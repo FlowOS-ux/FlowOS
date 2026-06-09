@@ -22,6 +22,7 @@ import favoriteRoutes from '../../modules/favorites/favorites.routes';
 import analyticsRoutes from '../../modules/analytics/analytics.routes';
 import aiRoutes from '../../modules/ai/ai.routes';
 import supportRoutes from '../../modules/support/support.routes';
+import mediaRoutes from '../../modules/media/media.routes';
 
 const router = Router();
 
@@ -71,6 +72,9 @@ router.use('/ai', aiRoutes);
 
 // Help & Support (articles + tickets)
 router.use('/support', supportRoutes);
+
+// Media uploads (business logos / thumbnails, avatars)
+router.use('/media', mediaRoutes);
 // router.use('/businesses', businessRoutes);
 // router.use('/queues', queueRoutes);
 // router.use('/entries', entryRoutes);

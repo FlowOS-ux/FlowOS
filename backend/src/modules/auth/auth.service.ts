@@ -3,20 +3,28 @@
  * Authentication business logic: registration, login, refresh-token rotation,
  * logout, and email-based password reset.
  */
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { usersRepository, toPublicUser } from '../users/users.repository';
+import type { UserDoc } from '../../models';
 import { authRepository } from './auth.repository';
 import { hashPassword, comparePassword, hashToken, compareToken } from '../../lib/password';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt';
-import { ConflictError, UnauthorizedError, BadRequestError } from '../../lib/errors';
+import {
+  ConflictError,
+  UnauthorizedError,
+  BadRequestError,
+  EmailNotVerifiedError,
+} from '../../lib/errors';
 import { email as emailService } from '../../container';
-import { env } from '../../config/env';
+import { env, isProd } from '../../config/env';
 import { logger } from '../../lib/logger';
 import type {
   RegisterDto,
   LoginDto,
   RefreshDto,
   LogoutDto,
+  VerifyEmailDto,
+  ResendOtpDto,
   ForgotPasswordDto,
   ResetPasswordDto,
 } from './auth.schema';
@@ -25,6 +33,38 @@ interface AuthResult {
   user: ReturnType<typeof toPublicUser>;
   accessToken: string;
   refreshToken: string;
+}
+
+interface RegisterResult {
+  status: 'VERIFICATION_REQUIRED';
+  email: string;
+  /** Demo only (non-production): the plaintext code, so testers can self-verify. */
+  devCode?: string;
+}
+
+const OTP_TTL_MS = 10 * 60 * 1000; // verification codes are valid for 10 minutes
+const OTP_MAX_ATTEMPTS = 5;
+
+/** A cryptographically-random, zero-padded 6-digit code. */
+function generateOtp(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, '0');
+}
+
+/** Issue a fresh verification OTP, persist its hash, email it, and return the code. */
+async function sendVerificationOtp(user: UserDoc): Promise<string> {
+  const otp = generateOtp();
+  await usersRepository.updateById(user.id as string, {
+    verifyOtpHash: await hashToken(otp),
+    verifyOtpExpires: new Date(Date.now() + OTP_TTL_MS),
+    verifyOtpAttempts: 0,
+  });
+  await emailService.send({
+    to: user.email,
+    subject: 'Your FlowOS verification code',
+    text: `Welcome to FlowOS! Your verification code is ${otp}. It expires in 10 minutes.`,
+  });
+  logger.info({ userId: user.id }, 'verification OTP sent');
+  return otp;
 }
 
 /** Parse a JWT-style duration ("15m", "7d") into milliseconds. */
@@ -54,7 +94,8 @@ async function issueTokens(
 }
 
 export const authService = {
-  async register(dto: RegisterDto, userAgent?: string): Promise<AuthResult> {
+  /** Create the account (unverified) and email a verification code. No session yet. */
+  async register(dto: RegisterDto): Promise<RegisterResult> {
     if (await usersRepository.existsByEmail(dto.email)) {
       throw new ConflictError('An account with this email already exists');
     }
@@ -65,8 +106,9 @@ export const authService = {
       role: dto.role,
       phone: dto.phone,
     });
-    const tokens = await issueTokens(user.id as string, user.role, userAgent);
-    return { user: toPublicUser(user), ...tokens };
+    const otp = await sendVerificationOtp(user);
+    // In non-production (demo/dev), return the code so testers can verify without email.
+    return { status: 'VERIFICATION_REQUIRED', email: user.email, ...(isProd ? {} : { devCode: otp }) };
   },
 
   async login(dto: LoginDto, userAgent?: string): Promise<AuthResult> {
@@ -74,8 +116,53 @@ export const authService = {
     if (!user || !(await comparePassword(dto.password, user.passwordHash))) {
       throw new UnauthorizedError('Invalid email or password');
     }
+    // Block unverified accounts, but (re)send a fresh code so the user can continue.
+    if (!user.emailVerified) {
+      const otp = await sendVerificationOtp(user);
+      throw new EmailNotVerifiedError(undefined, isProd ? undefined : { devCode: otp });
+    }
     const tokens = await issueTokens(user.id as string, user.role, userAgent);
     return { user: toPublicUser(user), ...tokens };
+  },
+
+  /** Verify the emailed OTP; on success mark verified and issue a session. */
+  async verifyEmail(dto: VerifyEmailDto, userAgent?: string): Promise<AuthResult> {
+    const user = await usersRepository.findByEmailForVerification(dto.email);
+    if (!user) throw new BadRequestError('Invalid or expired code');
+    if (user.emailVerified) {
+      throw new BadRequestError('Email already verified — please log in');
+    }
+    if (
+      !user.verifyOtpHash ||
+      !user.verifyOtpExpires ||
+      user.verifyOtpExpires.getTime() < Date.now()
+    ) {
+      throw new BadRequestError('Your code has expired — request a new one');
+    }
+    if ((user.verifyOtpAttempts ?? 0) >= OTP_MAX_ATTEMPTS) {
+      throw new BadRequestError('Too many incorrect attempts — request a new code');
+    }
+    if (!(await compareToken(dto.otp, user.verifyOtpHash))) {
+      await usersRepository.updateById(user.id as string, { $inc: { verifyOtpAttempts: 1 } });
+      throw new BadRequestError('Incorrect code');
+    }
+
+    const updated = await usersRepository.updateById(user.id as string, {
+      emailVerified: true,
+      $unset: { verifyOtpHash: 1, verifyOtpExpires: 1, verifyOtpAttempts: 1 },
+    });
+    const tokens = await issueTokens(user.id as string, user.role, userAgent);
+    return { user: toPublicUser(updated ?? user), ...tokens };
+  },
+
+  /** Re-send a verification code. Always resolves (does not reveal account state). */
+  async resendOtp(dto: ResendOtpDto): Promise<{ devCode?: string }> {
+    const user = await usersRepository.findByEmailForVerification(dto.email);
+    if (user && !user.emailVerified) {
+      const otp = await sendVerificationOtp(user);
+      if (!isProd) return { devCode: otp };
+    }
+    return {};
   },
 
   /** Rotate: validate the presented refresh token, revoke it, issue a fresh pair. */

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FlowOS LAN-demo network policy.
+  The shared APK talks to the developer machine's backend over plain HTTP on the
+  local network, so cleartext traffic must be permitted. This file takes
+  precedence over android:usesCleartextTraffic on Android 7.0+.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

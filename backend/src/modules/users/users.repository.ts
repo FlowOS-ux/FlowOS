@@ -29,6 +29,13 @@ export const usersRepository = {
     return User.findById(id).select('+passwordHash +resetTokenHash +resetTokenExpires').exec();
   },
 
+  /** Includes the email-verification OTP fields (normally `select: false`). */
+  findByEmailForVerification(email: string): Promise<UserDoc | null> {
+    return User.findOne({ email: email.toLowerCase() })
+      .select('+verifyOtpHash +verifyOtpExpires +verifyOtpAttempts')
+      .exec();
+  },
+
   existsByEmail(email: string): Promise<boolean> {
     return User.exists({ email: email.toLowerCase() }).then((r) => Boolean(r));
   },
@@ -49,6 +56,7 @@ export function toPublicUser(user: UserDoc) {
     name: user.name,
     email: user.email,
     role: user.role,
+    emailVerified: user.emailVerified,
     phone: user.phone ?? null,
     avatarUrl: user.avatarUrl ?? null,
     onboardingComplete: user.onboardingComplete,

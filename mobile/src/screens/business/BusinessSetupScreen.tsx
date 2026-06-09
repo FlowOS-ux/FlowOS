@@ -20,6 +20,7 @@ import {
 } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Screen from '../../components/Screen';
+import ThumbnailPicker from '../../components/ThumbnailPicker';
 import { businessApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
 import { theme, spacing, statusColors } from '../../theme';
@@ -61,6 +62,7 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
   const [description, setDescription] = useState(business.description ?? '');
   const [address, setAddress] = useState(business.address ?? '');
   const [phone, setPhone] = useState(business.phone ?? '');
+  const [logoUrl, setLogoUrl] = useState<string | null>(business.logoUrl ?? null);
   const [active, setActive] = useState(business.status === 'ACTIVE');
   const [hours, setHours] = useState<Required<BusinessHour>[]>(() => buildHours(business.hours));
 
@@ -112,6 +114,7 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
         description: description.trim() || undefined,
         address: address.trim() || undefined,
         phone: phone.trim() || undefined,
+        logoUrl: logoUrl ?? undefined,
         // Closed days drop their times; open days send both.
         hours: hours.map((day) =>
           day.isClosed
@@ -203,6 +206,8 @@ export default function BusinessSetupScreen({ route, navigation }: Props) {
         value={phone}
         onChangeText={setPhone}
       />
+
+      <ThumbnailPicker value={logoUrl} onChange={setLogoUrl} label="Thumbnail image" />
 
       <Divider style={styles.divider} />
 

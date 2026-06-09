@@ -15,12 +15,21 @@ interface AuthContextValue {
   user: User | null;
   initializing: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /**
+   * Creates the account and triggers a verification email. Does NOT start a session.
+   * In a non-production (demo) backend the response includes `devCode` so the UI can
+   * surface the code without an inbox.
+   */
   register: (input: {
     name: string;
     email: string;
     password: string;
     role: Role;
-  }) => Promise<void>;
+  }) => Promise<{ devCode?: string }>;
+  /** Confirm the emailed OTP; on success the user is signed in. */
+  verifyEmail: (email: string, otp: string) => Promise<void>;
+  /** Re-send a code; returns the demo `devCode` when the backend exposes it. */
+  resendOtp: (email: string) => Promise<{ devCode?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -98,12 +107,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(
     async (input: { name: string; email: string; password: string; role: Role }) => {
+      // Registration only creates the account + sends a code; verification logs in.
       const res = await authApi.register(input);
+      return { devCode: res.devCode };
+    },
+    [],
+  );
+
+  const verifyEmail = useCallback(
+    async (email: string, otp: string) => {
+      const res = await authApi.verifyEmail({ email, otp });
       await persist(res.accessToken, res.refreshToken);
       setUser(res.user);
     },
     [persist],
   );
+
+  const resendOtp = useCallback(async (email: string) => {
+    const res = await authApi.resendOtp(email);
+    return { devCode: res.devCode };
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -115,8 +138,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshTokenValue, clearSession]);
 
   const value = useMemo(
-    () => ({ user, initializing, login, register, logout }),
-    [user, initializing, login, register, logout],
+    () => ({ user, initializing, login, register, verifyEmail, resendOtp, logout }),
+    [user, initializing, login, register, verifyEmail, resendOtp, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

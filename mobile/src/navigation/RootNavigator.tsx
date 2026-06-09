@@ -6,7 +6,6 @@
  *   customer        -> Customer tabs (+ Business Details)
  */
 import React from 'react';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -21,6 +20,7 @@ import type {
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ExploreScreen from '../screens/customer/ExploreScreen';
 import BusinessDetailsScreen from '../screens/customer/BusinessDetailsScreen';
@@ -32,6 +32,7 @@ import QueueFormScreen from '../screens/business/QueueFormScreen';
 import QueueManagerScreen from '../screens/business/QueueManagerScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import ProfileScreen from '../screens/shared/ProfileScreen';
+import Splash from '../components/Splash';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const CustomerStack = createNativeStackNavigator<CustomerStackParamList>();
@@ -49,6 +50,7 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
@@ -160,11 +162,7 @@ export default function RootNavigator() {
   const { user, initializing } = useAuth();
 
   if (initializing) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
+    return <Splash />;
   }
 
   const isBusiness = user?.role === 'BUSINESS_OWNER' || user?.role === 'STAFF';
@@ -175,7 +173,3 @@ export default function RootNavigator() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-});

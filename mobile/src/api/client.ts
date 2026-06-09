@@ -79,10 +79,45 @@ api.interceptors.response.use(
   },
 );
 
+/** Extract the machine-readable error code (e.g. 'EMAIL_NOT_VERIFIED') when present. */
+export function apiErrorCode(err: unknown): string | undefined {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { error?: { code?: string } } | undefined;
+    return data?.error?.code;
+  }
+  return undefined;
+}
+
+/** Demo-mode verification code returned in an error's details (non-production backend). */
+export function apiErrorDevCode(err: unknown): string | undefined {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { error?: { details?: { devCode?: string } } } | undefined;
+    return data?.error?.details?.devCode;
+  }
+  return undefined;
+}
+
 /** Extract a human-readable message from an API error. */
 export function apiErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { error?: { message?: string } } | undefined;
+    const data = err.response?.data as
+      | { error?: { message?: string; details?: unknown } }
+      | undefined;
+
+    // Surface the first field-level validation issue when present
+    // (e.g. zod: "password: Too small ...") instead of a generic "Validation failed".
+    const details = data?.error?.details;
+    if (Array.isArray(details) && details.length > 0) {
+      const first = details[0] as { message?: string; path?: Array<string | number> };
+      if (first?.message) {
+        const field =
+          Array.isArray(first.path) && first.path.length > 0
+            ? first.path[first.path.length - 1]
+            : undefined;
+        return field ? `${field}: ${first.message}` : first.message;
+      }
+    }
+
     return data?.error?.message ?? err.message;
   }
   return err instanceof Error ? err.message : 'Something went wrong';

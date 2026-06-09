@@ -13,7 +13,9 @@ export class SmtpEmailService implements IEmailService {
   private transporter: Transporter | null = null;
 
   private getTransporter(): Transporter | null {
-    if (!env.SMTP_HOST) return null;
+    // Require both host and user — otherwise fall back to console transport so
+    // signup/verification still works while SMTP credentials aren't configured.
+    if (!env.SMTP_HOST || !env.SMTP_USER) return null;
     if (!this.transporter) {
       this.transporter = nodemailer.createTransport({
         host: env.SMTP_HOST,

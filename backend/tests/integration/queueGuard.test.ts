@@ -3,7 +3,15 @@
  * Phase 2A guard: a customer cannot join a queue whose business is not ACTIVE.
  * Mirrors the smoke assertion as a first-class regression test.
  */
-import { setupTestApp, teardownTestApp, clearDb, API, bearer, type TestContext } from '../helpers/app';
+import {
+  setupTestApp,
+  teardownTestApp,
+  clearDb,
+  registerAndLogin,
+  API,
+  bearer,
+  type TestContext,
+} from '../helpers/app';
 
 let ctx: TestContext;
 
@@ -14,13 +22,13 @@ afterAll(teardownTestApp);
 afterEach(clearDb);
 
 async function seedOwnerCustomerQueue() {
-  const owner = await ctx.agent.post(`${API}/auth/register`).send({
+  const owner = await registerAndLogin(ctx.agent, {
     name: 'Olivia Owner',
     email: 'owner@flowos.test',
     password: 'password123',
     role: 'BUSINESS_OWNER',
   });
-  const customer = await ctx.agent.post(`${API}/auth/register`).send({
+  const customer = await registerAndLogin(ctx.agent, {
     name: 'Cara Customer',
     email: 'cara@flowos.test',
     password: 'password123',
@@ -28,19 +36,19 @@ async function seedOwnerCustomerQueue() {
 
   const biz = await ctx.agent
     .post(`${API}/businesses`)
-    .set(bearer(owner.body.accessToken))
+    .set(bearer(owner.accessToken))
     .send({ name: 'Test Clinic', category: 'HOSPITAL' });
   const businessId = biz.body.business.id as string;
 
   const queue = await ctx.agent
     .post(`${API}/businesses/${businessId}/queues`)
-    .set(bearer(owner.body.accessToken))
+    .set(bearer(owner.accessToken))
     .send({ name: 'General', avgServiceSec: 120 });
   const queueId = queue.body.queue.id as string;
 
   return {
-    ownerToken: owner.body.accessToken as string,
-    customerToken: customer.body.accessToken as string,
+    ownerToken: owner.accessToken,
+    customerToken: customer.accessToken,
     businessId,
     queueId,
   };

@@ -8,6 +8,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, TextInput, Button, HelperText, Chip, Snackbar } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Screen from '../../components/Screen';
+import ThumbnailPicker from '../../components/ThumbnailPicker';
 import { businessApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
 import { theme, spacing } from '../../theme';
@@ -25,6 +26,7 @@ export default function CreateBusinessScreen({ navigation }: Props) {
   const [phone, setPhone] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +71,7 @@ export default function CreateBusinessScreen({ navigation }: Props) {
         description: description.trim() || undefined,
         address: address.trim() || undefined,
         phone: phone.trim() || undefined,
+        logoUrl: logoUrl ?? undefined,
         location: lat.trim() ? { lat: Number(lat), lng: Number(lng) } : undefined,
       });
       setSuccess(true);
@@ -93,6 +96,8 @@ export default function CreateBusinessScreen({ navigation }: Props) {
           </Chip>
         ))}
       </View>
+
+      <ThumbnailPicker value={logoUrl} onChange={setLogoUrl} label="Thumbnail image (optional)" />
 
       <TextInput
         label="Description (optional)"

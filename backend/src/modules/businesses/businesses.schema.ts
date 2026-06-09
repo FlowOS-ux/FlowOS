@@ -22,6 +22,7 @@ export const createBusinessSchema = z.object({
   description: z.string().max(1000).optional(),
   address: z.string().max(200).optional(),
   phone: z.string().max(20).optional(),
+  logoUrl: z.string().url().optional(),
   location: locationSchema.optional(),
 });
 

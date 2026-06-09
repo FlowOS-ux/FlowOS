@@ -26,8 +26,18 @@ export function createApp(): Application {
   app.use(express.urlencoded({ extended: true }));
   app.use(pinoHttp({ logger }));
 
-  // Serve locally-stored uploads (dev storage backend).
-  app.use('/uploads', express.static(env.UPLOAD_DIR));
+  // Serve locally-stored uploads (dev storage backend). Helmet's default
+  // Cross-Origin-Resource-Policy: same-origin would block the web app (a
+  // different origin/port) from embedding these images, so relax it to
+  // cross-origin for static assets only — the API keeps the stricter default.
+  app.use(
+    '/uploads',
+    (_req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(env.UPLOAD_DIR),
+  );
 
   // Liveness probe at the root (separate from versioned /system/health).
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));

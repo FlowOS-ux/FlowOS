@@ -1,0 +1,13 @@
+# Local dev tooling & binaries (not for version control)
+tools/
+start-tunnel.bat
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

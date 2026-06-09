@@ -5,6 +5,7 @@
 import { api } from './client';
 import type {
   AuthResult,
+  RegisterResult,
   User,
   Business,
   Queue,
@@ -18,9 +19,15 @@ import type {
 
 export const authApi = {
   register: (body: { name: string; email: string; password: string; role?: Role }) =>
-    api.post<AuthResult>('/auth/register', body).then((r) => r.data),
+    api.post<RegisterResult>('/auth/register', body).then((r) => r.data),
   login: (body: { email: string; password: string }) =>
     api.post<AuthResult>('/auth/login', body).then((r) => r.data),
+  verifyEmail: (body: { email: string; otp: string }) =>
+    api.post<AuthResult>('/auth/verify-email', body).then((r) => r.data),
+  resendOtp: (email: string) =>
+    api
+      .post<{ success: boolean; message: string; devCode?: string }>('/auth/resend-otp', { email })
+      .then((r) => r.data),
   me: () => api.get<{ user: User }>('/auth/me').then((r) => r.data.user),
   logout: (refreshToken: string) =>
     api.post('/auth/logout', { refreshToken }).then((r) => r.data),
@@ -55,6 +62,7 @@ export const businessApi = {
     description?: string;
     address?: string;
     phone?: string;
+    logoUrl?: string;
     location?: { lat: number; lng: number };
   }) => api.post<{ business: Business }>('/businesses', body).then((r) => r.data.business),
   update: (id: string, body: Record<string, unknown>) =>
@@ -80,6 +88,12 @@ export const businessApi = {
     api
       .get<{ summary: AnalyticsSummary }>(`/businesses/${businessId}/analytics/summary`)
       .then((r) => r.data.summary),
+};
+
+export const mediaApi = {
+  /** Upload an image (multipart, field "file"); returns the hosted absolute URL. */
+  upload: (form: FormData) =>
+    api.post<{ url: string }>('/media', form).then((r) => r.data.url),
 };
 
 export const queueApi = {

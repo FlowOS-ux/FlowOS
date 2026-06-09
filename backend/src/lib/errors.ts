@@ -44,6 +44,13 @@ export class ForbiddenError extends AppError {
   }
 }
 
+/** Login attempted before the account's email has been verified. */
+export class EmailNotVerifiedError extends AppError {
+  constructor(message = 'Please verify your email before continuing', details?: unknown) {
+    super(403, 'EMAIL_NOT_VERIFIED', message, details);
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message = 'Resource not found') {
     super(404, 'NOT_FOUND', message);

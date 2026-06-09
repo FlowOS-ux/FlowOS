@@ -27,7 +27,11 @@ export default function RegisterScreen({ navigation }: Props) {
     setError(null);
     setLoading(true);
     try {
-      await register({ name: name.trim(), email: email.trim(), password, role });
+      const trimmedEmail = email.trim();
+      const { devCode } = await register({ name: name.trim(), email: trimmedEmail, password, role });
+      // Account created + code emailed — go verify before the session starts.
+      // devCode is only present from a demo backend (surfaces the code in-app).
+      navigation.navigate('VerifyEmail', { email: trimmedEmail, devCode });
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {

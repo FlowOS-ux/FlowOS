@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { businessApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
+import { businessImageUrl } from '../../lib/images';
 import { theme, spacing } from '../../theme';
 import type { Business } from '../../api/types';
 import type { CustomerStackParamList } from '../../navigation/types';
@@ -119,6 +120,7 @@ export default function ExploreScreen() {
               style={styles.card}
               onPress={() => navigation.navigate('BusinessDetails', { businessId: item.id })}
             >
+              <Card.Cover source={{ uri: businessImageUrl(item) }} style={styles.cover} />
               <Card.Title
                 title={item.name}
                 subtitle={item.address ?? item.category}
@@ -141,7 +143,8 @@ const styles = StyleSheet.create({
   search: { marginHorizontal: spacing.md, marginTop: spacing.md },
   filters: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm },
-  card: { backgroundColor: theme.colors.surface },
+  card: { backgroundColor: theme.colors.surface, overflow: 'hidden' },
+  cover: { height: 140 },
   chip: { marginRight: spacing.md, alignSelf: 'center' },
   loader: { marginTop: spacing.xl },
   empty: { textAlign: 'center', marginTop: spacing.xl, color: theme.colors.onSurfaceVariant },

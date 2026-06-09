@@ -9,13 +9,27 @@ import { usersRepository, toPublicUser } from '../users/users.repository';
 import { UnauthorizedError, NotFoundError } from '../../lib/errors';
 
 export async function register(req: Request, res: Response): Promise<void> {
-  const result = await authService.register(req.body, req.headers['user-agent']);
+  const result = await authService.register(req.body);
   res.status(201).json(result);
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
   const result = await authService.login(req.body, req.headers['user-agent']);
   res.json(result);
+}
+
+export async function verifyEmail(req: Request, res: Response): Promise<void> {
+  const result = await authService.verifyEmail(req.body, req.headers['user-agent']);
+  res.json(result);
+}
+
+export async function resendOtp(req: Request, res: Response): Promise<void> {
+  const { devCode } = await authService.resendOtp(req.body);
+  res.json({
+    success: true,
+    message: 'If the account exists and is unverified, a new code was sent',
+    ...(devCode ? { devCode } : {}),
+  });
 }
 
 export async function refresh(req: Request, res: Response): Promise<void> {

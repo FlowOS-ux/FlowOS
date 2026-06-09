@@ -26,6 +26,15 @@ export const logoutSchema = z.object({
   refreshToken: z.string().min(10),
 });
 
+export const verifyEmailSchema = z.object({
+  email: z.string().email().toLowerCase(),
+  otp: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+});
+
+export const resendOtpSchema = z.object({
+  email: z.string().email().toLowerCase(),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email().toLowerCase(),
 });
@@ -38,6 +47,8 @@ export const resetPasswordSchema = z.object({
 
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;
+export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
+export type ResendOtpDto = z.infer<typeof resendOtpSchema>;
 export type RefreshDto = z.infer<typeof refreshSchema>;
 export type LogoutDto = z.infer<typeof logoutSchema>;
 export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;

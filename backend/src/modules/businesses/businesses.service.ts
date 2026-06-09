@@ -41,6 +41,7 @@ export const businessesService = {
       description: dto.description,
       address: dto.address,
       phone: dto.phone,
+      logoUrl: dto.logoUrl,
       ownerId,
       status: 'DRAFT',
       location: dto.location

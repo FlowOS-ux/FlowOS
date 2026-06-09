@@ -117,3 +117,12 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Bundle the icon font(s) the app uses into the APK. Without this, react-native-
+// vector-icons (and react-native-paper, which falls back to it) render as empty
+// boxes in release builds because the .ttf is never packaged. The app only uses
+// MaterialCommunityIcons, so we copy just that one to keep the APK small.
+project.ext.vectoricons = [
+    iconFontNames: ['MaterialCommunityIcons.ttf']
+]
+apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")

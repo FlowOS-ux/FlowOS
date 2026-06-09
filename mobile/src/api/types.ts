@@ -17,6 +17,7 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  emailVerified: boolean;
   phone: string | null;
   avatarUrl: string | null;
   onboardingComplete: boolean;
@@ -32,6 +33,13 @@ export interface AuthResult {
   user: User;
   accessToken: string;
   refreshToken: string;
+}
+
+export interface RegisterResult {
+  status: 'VERIFICATION_REQUIRED';
+  email: string;
+  /** Demo only (non-production backend): the code, surfaced so testers can self-verify. */
+  devCode?: string;
 }
 
 export type BusinessStatus = 'DRAFT' | 'ACTIVE' | 'SUSPENDED';

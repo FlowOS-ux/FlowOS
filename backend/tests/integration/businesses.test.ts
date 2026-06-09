@@ -3,7 +3,15 @@
  * Business Setup + Activation: a DRAFT business is hidden from Explore and becomes
  * discoverable only after activation; PATCH persists the 7-day hours schedule.
  */
-import { setupTestApp, teardownTestApp, clearDb, API, bearer, type TestContext } from '../helpers/app';
+import {
+  setupTestApp,
+  teardownTestApp,
+  clearDb,
+  registerAndLogin,
+  API,
+  bearer,
+  type TestContext,
+} from '../helpers/app';
 
 let ctx: TestContext;
 
@@ -14,13 +22,13 @@ afterAll(teardownTestApp);
 afterEach(clearDb);
 
 async function registerOwner() {
-  const res = await ctx.agent.post(`${API}/auth/register`).send({
+  const res = await registerAndLogin(ctx.agent, {
     name: 'Olivia Owner',
     email: 'owner@flowos.test',
     password: 'password123',
     role: 'BUSINESS_OWNER',
   });
-  return res.body.accessToken as string;
+  return res.accessToken;
 }
 
 describe('business activation & discoverability', () => {
@@ -87,7 +95,7 @@ describe('business activation & discoverability', () => {
       .send({ name: 'Glow Salon', category: 'SALON' });
     const id = created.body.business.id as string;
 
-    const stranger = await ctx.agent.post(`${API}/auth/register`).send({
+    const stranger = await registerAndLogin(ctx.agent, {
       name: 'Stan Stranger',
       email: 'stranger@flowos.test',
       password: 'password123',
@@ -96,7 +104,7 @@ describe('business activation & discoverability', () => {
 
     const res = await ctx.agent
       .patch(`${API}/businesses/${id}`)
-      .set(bearer(stranger.body.accessToken))
+      .set(bearer(stranger.accessToken))
       .send({ status: 'ACTIVE' });
     expect(res.status).toBe(403);
   });
@@ -139,7 +147,7 @@ describe('delete business', () => {
       .send({ name: 'Temp Biz', category: 'OTHER' });
     const id = created.body.business.id as string;
 
-    const stranger = await ctx.agent.post(`${API}/auth/register`).send({
+    const stranger = await registerAndLogin(ctx.agent, {
       name: 'Stan Stranger',
       email: 'stan2@flowos.test',
       password: 'password123',
@@ -147,7 +155,7 @@ describe('delete business', () => {
     });
     const res = await ctx.agent
       .delete(`${API}/businesses/${id}`)
-      .set(bearer(stranger.body.accessToken));
+      .set(bearer(stranger.accessToken));
     expect(res.status).toBe(403);
   });
 });

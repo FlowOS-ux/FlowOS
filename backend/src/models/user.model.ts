@@ -14,6 +14,7 @@ const userSchema = new Schema(
     phone: { type: String, trim: true },
     avatarUrl: { type: String },
     role: { type: String, enum: ROLES, default: 'CUSTOMER', index: true },
+    emailVerified: { type: Boolean, default: false },
     onboardingComplete: { type: Boolean, default: false },
     settings: {
       language: { type: String, default: 'en' },
@@ -24,6 +25,10 @@ const userSchema = new Schema(
     // Password reset (hashed token + expiry); cleared after use.
     resetTokenHash: { type: String, select: false },
     resetTokenExpires: { type: Date, select: false },
+    // Email verification OTP (hashed code + expiry + attempt counter); cleared once verified.
+    verifyOtpHash: { type: String, select: false },
+    verifyOtpExpires: { type: Date, select: false },
+    verifyOtpAttempts: { type: Number, default: 0, select: false },
   },
   { timestamps: true },
 );

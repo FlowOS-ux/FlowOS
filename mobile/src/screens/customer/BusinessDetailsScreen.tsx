@@ -9,6 +9,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Screen from '../../components/Screen';
 import { businessApi, queueApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
+import { businessImageUrl } from '../../lib/images';
 import { theme, spacing, statusColors } from '../../theme';
 import type { Business, Queue } from '../../api/types';
 import type { CustomerStackParamList } from '../../navigation/types';
@@ -68,6 +69,7 @@ export default function BusinessDetailsScreen({ route, navigation }: Props) {
     <Screen scroll refreshing={false} onRefresh={load}>
       {business && (
         <Card style={styles.card}>
+          <Card.Cover source={{ uri: businessImageUrl(business) }} style={styles.cover} />
           <Card.Title
             title={business.name}
             subtitle={`${business.category} · ★ ${business.ratingAvg.toFixed(1)} (${business.ratingCount})`}
@@ -117,7 +119,8 @@ export default function BusinessDetailsScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: { backgroundColor: theme.colors.surface },
+  card: { backgroundColor: theme.colors.surface, overflow: 'hidden' },
+  cover: { height: 160 },
   heading: { marginTop: spacing.sm, fontWeight: '700' },
   muted: { color: theme.colors.onSurfaceVariant },
   chip: { marginRight: spacing.md, alignSelf: 'center' },

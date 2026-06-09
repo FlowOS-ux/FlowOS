@@ -34,6 +34,28 @@ export async function teardownTestApp(): Promise<void> {
   }
 }
 
+/**
+ * Register a user, mark them verified (bypassing the emailed OTP), and log in.
+ * Returns the AuthResult body (user + tokens). Use in tests that just need an
+ * authenticated session; the OTP flow itself is covered in auth.test.ts.
+ */
+export async function registerAndLogin(
+  agent: SuperTest<Test>,
+  body: { name: string; email: string; password: string; role?: string },
+): Promise<{ user: { id: string; role: string }; accessToken: string; refreshToken: string }> {
+  await agent.post(`${API}/auth/register`).send(body);
+  const db = mongoose.connection.db;
+  if (db) {
+    await db
+      .collection('users')
+      .updateOne({ email: body.email.toLowerCase() }, { $set: { emailVerified: true } });
+  }
+  const res = await agent
+    .post(`${API}/auth/login`)
+    .send({ email: body.email, password: body.password });
+  return res.body;
+}
+
 /** Wipe all collections between tests for isolation. */
 export async function clearDb(): Promise<void> {
   const db = mongoose.connection.db;

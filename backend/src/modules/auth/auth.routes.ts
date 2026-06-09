@@ -13,6 +13,8 @@ import {
   loginSchema,
   refreshSchema,
   logoutSchema,
+  verifyEmailSchema,
+  resendOtpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
 } from './auth.schema';
@@ -29,6 +31,13 @@ const router = Router();
 
 router.post('/register', authLimiter, validate({ body: registerSchema }), controller.register);
 router.post('/login', authLimiter, validate({ body: loginSchema }), controller.login);
+router.post(
+  '/verify-email',
+  authLimiter,
+  validate({ body: verifyEmailSchema }),
+  controller.verifyEmail,
+);
+router.post('/resend-otp', authLimiter, validate({ body: resendOtpSchema }), controller.resendOtp);
 router.post('/refresh', validate({ body: refreshSchema }), controller.refresh);
 router.post('/logout', validate({ body: logoutSchema }), controller.logout);
 router.post(
