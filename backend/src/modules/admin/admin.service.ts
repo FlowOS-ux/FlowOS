@@ -25,6 +25,8 @@ function toAdminBusiness(b: BusinessDoc) {
     description: b.description ?? null,
     address: b.address ?? null,
     phone: b.phone ?? null,
+    email: b.email ?? null,
+    website: b.website ?? null,
     logoUrl: b.logoUrl ?? null,
     location: { lng: coords[0], lat: coords[1] },
     status: b.status,

@@ -59,6 +59,8 @@ export interface Business {
   address: string | null;
   location: { lat: number; lng: number };
   phone: string | null;
+  email: string | null;
+  website: string | null;
   logoUrl: string | null;
   hours: BusinessHour[];
   status: BusinessStatus;
@@ -79,6 +81,8 @@ export interface AdminBusiness {
   address: string | null;
   location: { lat: number; lng: number };
   phone: string | null;
+  email: string | null;
+  website: string | null;
   logoUrl: string | null;
   status: BusinessStatus;
   rejectionReason: string | null;

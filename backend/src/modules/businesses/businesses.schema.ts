@@ -22,6 +22,8 @@ export const createBusinessSchema = z.object({
   description: z.string().max(1000).optional(),
   address: z.string().max(200).optional(),
   phone: z.string().max(20).optional(),
+  email: z.string().email().max(120).optional(),
+  website: z.string().url().max(200).optional(),
   logoUrl: z.string().url().optional(),
   location: locationSchema.optional(),
 });
@@ -36,6 +38,8 @@ export const updateBusinessSchema = z
     description: z.string().max(1000).optional(),
     address: z.string().max(200).optional(),
     phone: z.string().max(20).optional(),
+    email: z.string().email().max(120).optional(),
+    website: z.string().url().max(200).optional(),
     logoUrl: z.string().url().optional(),
     location: locationSchema.optional(),
     hours: z.array(hourSchema).max(7).optional(),

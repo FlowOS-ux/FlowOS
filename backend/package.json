@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "dev:db": "tsx scripts/dev-db.ts",
     "seed": "tsx scripts/seed.ts",
+    "seed:demo": "tsx scripts/seed-premium-demo.ts",
     "smoke": "tsx scripts/smoke.ts",
     "smoke:socket": "tsx scripts/socket-smoke.ts",
     "test": "jest --runInBand",

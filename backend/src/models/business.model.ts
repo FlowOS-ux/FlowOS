@@ -29,6 +29,8 @@ const businessSchema = new Schema(
       coordinates: { type: [Number], default: [0, 0] }, // [lng, lat]
     },
     phone: { type: String },
+    email: { type: String },
+    website: { type: String },
     logoUrl: { type: String },
     hours: { type: [businessHourSchema], default: [] },
     status: {

@@ -107,6 +107,8 @@ export default function BusinessReviewScreen({ route, navigation }: Props) {
       <Field label="Description" value={business.description} />
       <Field label="Address" value={business.address} />
       <Field label="Business phone" value={business.phone} />
+      <Field label="Business email" value={business.email} />
+      <Field label="Website" value={business.website} />
       <Field label="Submitted" value={formatDate(business.submittedAt)} />
 
       {business.status === 'APPROVED' && business.approvedAt ? (
