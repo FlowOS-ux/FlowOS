@@ -2,9 +2,9 @@
  * FlowOS - scripts/seed-premium-demo.ts
  * Premium, globally-branded demo dataset for investor/client demos & screenshots.
  *
- * Resets demo collections, then creates 10 pre-APPROVED businesses in Hyderabad,
+ * Resets demo collections, then creates 8 pre-APPROVED businesses in Hyderabad,
  * India (idempotent — skips any whose name already exists) across Banking,
- * Restaurant, Salon & Spa, Healthcare, Hotel, and Jewellery — each with:
+ * Restaurant, Salon & Spa, Healthcare, and Jewellery — each with:
  *   - a realistic profile (premium people-free category interior image, contact, hours, email, website)
  *   - 3 queues with realistic capacity / average service time
  *   - live queue entries (WAITING / CALLED / SERVING) + historical COMPLETED / NO_SHOW
@@ -112,11 +112,6 @@ const HEALTH_Q: QueueDef[] = [
   { name: 'Specialist Consultation', desc: 'Consult a specialist doctor.', avg: 600, cap: 20 },
   { name: 'Diagnostics & Lab', desc: 'Sample collection and diagnostics.', avg: 240, cap: 35 },
 ];
-const HOTEL_Q: QueueDef[] = [
-  { name: 'Check-in & Reception', desc: 'Guest check-in and front desk.', avg: 240, cap: 30 },
-  { name: 'Concierge Services', desc: 'Bookings, transport, and assistance.', avg: 360, cap: 20 },
-  { name: 'Spa & Leisure', desc: 'Spa, pool, and leisure reservations.', avg: 2400, cap: 10 },
-];
 const JEWEL_Q: QueueDef[] = [
   { name: 'Consultation Desk', desc: 'Browse collections with an advisor.', avg: 600, cap: 20 },
   { name: 'Custom Design Studio', desc: 'Bespoke jewellery design.', avg: 1800, cap: 8 },
@@ -150,20 +145,6 @@ const BUSINESSES: BizDef[] = [
     email: 'concierge@prestigefinancial.com',
     website: 'https://prestigefinancial.com',
     coords: [78.4347, 17.4156],
-    hours: HOURS.bank,
-    queues: BANK_Q,
-  },
-  {
-    name: 'Premier Banking Hub',
-    category: 'BANK',
-    ownerName: 'Ayesha Siddiqui',
-    description:
-      'A full-service premier banking hub with dedicated relationship managers and priority desks.',
-    address: 'Financial District, Nanakramguda, Hyderabad 500032',
-    phone: '+91 40 4455 2200',
-    email: 'hello@premierbankinghub.com',
-    website: 'https://premierbankinghub.com',
-    coords: [78.3421, 17.4159],
     hours: HOURS.bank,
     queues: BANK_Q,
   },
@@ -250,20 +231,6 @@ const BUSINESSES: BizDef[] = [
     coords: [78.3677, 17.4615],
     hours: HOURS.hospital,
     queues: HEALTH_Q,
-  },
-  {
-    name: 'The Deccan Grand Hotel',
-    category: 'HOTEL',
-    ownerName: 'Vikram Mehta',
-    description:
-      'A five-star luxury hotel offering refined suites, fine dining, and a signature wellness spa.',
-    address: 'Necklace Road, Banjara Hills, Hyderabad 500034',
-    phone: '+91 40 6688 1000',
-    email: 'reservations@deccangrand.com',
-    website: 'https://deccangrand.com',
-    coords: [78.438, 17.418],
-    hours: HOURS.hotel,
-    queues: HOTEL_Q,
   },
   {
     name: 'Hyderabad Heritage Jewellery',
