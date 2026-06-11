@@ -24,7 +24,7 @@ services:
       - key: TRUST_PROXY
         value: "1" # Render has ONE proxy hop in front of the app (Railway had 2)
       - key: CORS_ORIGIN
-        value: "*" # tighten to the flowos-web URL after the first deploy
+        value: "https://flowos-web.onrender.com" # the deployed web client (native APK sends no Origin)
       - key: JWT_SECRET
         generateValue: true # Render generates a secure random value
       - key: JWT_REFRESH_SECRET

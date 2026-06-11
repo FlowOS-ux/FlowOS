@@ -15,7 +15,7 @@
 import { Platform } from 'react-native';
 
 // Public HTTPS endpoint for shared/release builds (Render web service).
-const PUBLIC_BASE_URL = 'https://flowos-backend.onrender.com';
+const PUBLIC_BASE_URL = 'https://flowos-backend-343p.onrender.com';
 
 const devBase = Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
 
