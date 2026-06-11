@@ -22,7 +22,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: TRUST_PROXY
-        value: "1" # Render has ONE proxy hop in front of the app (Railway had 2)
+        value: "3" # client -> Cloudflare -> Render edge -> app (verified from X-Forwarded-For in logs)
       - key: CORS_ORIGIN
         value: "https://flowos-web.onrender.com" # the deployed web client (native APK sends no Origin)
       - key: JWT_SECRET
