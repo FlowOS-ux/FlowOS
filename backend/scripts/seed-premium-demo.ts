@@ -18,6 +18,7 @@
  * Usage:  npm run seed:demo        (run `npm run seed` first to create the admin)
  */
 /* eslint-disable no-console */
+import 'dotenv/config'; // load backend/.env (ADMIN_EMAIL, ADMIN_PASSWORD, MONGODB_URI)
 import mongoose, { Types } from 'mongoose';
 import {
   User,
