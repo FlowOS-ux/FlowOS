@@ -14,21 +14,10 @@ import { ErrorBoundary } from './src/web/ErrorBoundary';
 const USE_PROBE = false;
 import MaterialCommunityIconsFont from 'react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf';
 
-function showError(label, detail) {
-  const root = document.getElementById('root');
-  if (!root) return;
-  root.innerHTML =
-    '<pre style="white-space:pre-wrap;word-break:break-word;color:#b91c1c;background:#fff;' +
-    'padding:16px;margin:0;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;overflow:auto;height:100%">' +
-    '[' + label + ']\n' +
-    String(detail || '').replace(/&/g, '&amp;').replace(/</g, '&lt;') +
-    '</pre>';
-}
-window.addEventListener('error', (e) => showError('window.error', (e.error && e.error.stack) || e.message));
-window.addEventListener('unhandledrejection', (e) => {
-  const r = e.reason;
-  showError('unhandledrejection', (r && r.stack) || (r && r.message) || String(r));
-});
+// The global error/unhandledrejection handlers (incl. the network-error guard that
+// keeps transient blips from blanking the app) are installed once by
+// installErrorReporter.js above. `window.__flowosShowError` is its renderer.
+const showError = window.__flowosShowError || (() => {});
 
 // Register the MaterialCommunityIcons font so react-native-paper icons render on web.
 const styleEl = document.createElement('style');

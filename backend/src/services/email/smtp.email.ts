@@ -27,6 +27,34 @@ export class SmtpEmailService implements IEmailService {
     return this.transporter;
   }
 
+  /**
+   * Probe the SMTP connection once at boot and log the active mode loudly, so the
+   * server log makes it unambiguous whether real emails are delivered or merely
+   * printed to the console. Never throws — a bad SMTP config must not crash boot.
+   */
+  async verifyConnection(): Promise<void> {
+    const transporter = this.getTransporter();
+    if (!transporter) {
+      logger.warn(
+        '[email] SMTP not configured (SMTP_USER/SMTP_PASS empty) — CONSOLE fallback active; ' +
+          'verification codes are printed to this log, NOT delivered to inboxes.',
+      );
+      return;
+    }
+    try {
+      await transporter.verify();
+      logger.info(
+        { host: env.SMTP_HOST, from: env.EMAIL_FROM },
+        '[email] SMTP connection OK — real email delivery is ACTIVE',
+      );
+    } catch (err) {
+      logger.error(
+        { err, host: env.SMTP_HOST },
+        '[email] SMTP verify FAILED — check SMTP_USER/SMTP_PASS; outgoing email will error',
+      );
+    }
+  }
+
   async send(message: EmailMessage): Promise<void> {
     const transporter = this.getTransporter();
     if (!transporter) {

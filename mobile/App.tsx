@@ -11,6 +11,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider } from 'react-native-paper';
 import { AuthProvider } from './src/auth/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import ConnectivityBanner from './src/components/ConnectivityBanner';
+import TurnAlerts from './src/realtime/TurnAlerts';
 import { theme } from './src/theme';
 
 function App() {
@@ -21,7 +23,11 @@ function App() {
           <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
           <AuthProvider>
             <RootNavigator />
+            {/* Global "it's your turn" alerts (modal on call, banner on reconnect). */}
+            <TurnAlerts />
           </AuthProvider>
+          {/* Global, app-wide connectivity indicator (overlays everything). */}
+          <ConnectivityBanner />
         </PaperProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -25,13 +25,20 @@ const babelInclude = [
   nm('@react-native/normalize-colors'),
 ];
 
-module.exports = {
-  mode: 'development',
+// Mode-aware: `webpack serve` (no --mode) runs development; `npm run web:build`
+// passes --mode production, which also flips __DEV__ so src/config.ts targets the
+// deployed backend instead of localhost.
+module.exports = (_env, argv = {}) => {
+  const isProd = argv.mode === 'production';
+  return {
+  mode: isProd ? 'production' : 'development',
   entry: path.resolve(root, 'index.web.js'),
   output: {
     path: path.resolve(root, 'dist-web'),
-    filename: 'bundle.js',
+    // Content hash in prod so redeploys bust browser/CDN caches.
+    filename: isProd ? 'bundle.[contenthash].js' : 'bundle.js',
     publicPath: '/',
+    clean: true,
   },
   resolve: {
     extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js'],
@@ -79,8 +86,8 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({ template: path.resolve(root, 'web/index.html') }),
     new webpack.DefinePlugin({
-      __DEV__: JSON.stringify(true),
-      'process.env.NODE_ENV': JSON.stringify('development'),
+      __DEV__: JSON.stringify(!isProd),
+      'process.env.NODE_ENV': JSON.stringify(isProd ? 'production' : 'development'),
     }),
   ],
   devServer: {
@@ -90,4 +97,5 @@ module.exports = {
     hot: true,
     open: false,
   },
+  };
 };

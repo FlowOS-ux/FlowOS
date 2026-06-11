@@ -19,9 +19,12 @@ import {
   resetPasswordSchema,
 } from './auth.schema';
 
+// Per-client brute-force guard. Keyed on req.ip, which resolves to the real
+// device IP because `trust proxy` is set to Railway's hop count in app.ts — so
+// the budget is per user/device, not shared across everyone behind the proxy.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' } },

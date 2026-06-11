@@ -6,3 +6,6 @@ tests
 coverage
 .cxx
 .gradle
+# Secrets/local config — Railway injects real env vars; never bake .env into the image.
+.env
+.env.*

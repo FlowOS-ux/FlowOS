@@ -45,6 +45,12 @@ export default function ActivityScreen() {
   const queueIds = useMemo(() => entries.map((e) => e.queueId), [entries]);
   useQueueEvents(queueIds, load);
 
+  // Surface any CALLED ("your turn") entry at the very top so it's impossible to miss.
+  const ordered = useMemo(
+    () => [...entries].sort((a, b) => Number(b.status === 'CALLED') - Number(a.status === 'CALLED')),
+    [entries],
+  );
+
   // Track socket connection for the live/reconnecting badge.
   useEffect(() => {
     setLive(isConnected());
@@ -96,7 +102,7 @@ export default function ActivityScreen() {
       {entries.length === 0 && (
         <Text style={styles.empty}>{error ?? "You're not in any queues right now."}</Text>
       )}
-      {entries.map((e) => {
+      {ordered.map((e) => {
         const isCalled = e.status === 'CALLED';
         return (
           <Card key={e.id} style={[styles.card, isCalled && styles.calledCard]}>
@@ -106,9 +112,14 @@ export default function ActivityScreen() {
             />
             <Card.Content style={styles.body}>
               {isCalled ? (
-                <Text variant="headlineSmall" style={styles.called}>
-                  It&apos;s your turn! 🎉
-                </Text>
+                <View style={styles.turnBox}>
+                  <View style={styles.turnBadge}>
+                    <Text style={styles.turnBadgeText}>YOUR TURN</Text>
+                  </View>
+                  <Text variant="titleMedium" style={styles.turnSub}>
+                    Please proceed to the service counter.
+                  </Text>
+                </View>
               ) : (
                 <View style={styles.row}>
                   <View style={styles.metric}>
@@ -144,12 +155,20 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, gap: spacing.md, flexGrow: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   card: { backgroundColor: theme.colors.surface },
-  calledCard: { borderWidth: 2, borderColor: theme.colors.primary },
+  calledCard: { borderWidth: 2, borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryContainer },
   body: { gap: spacing.sm },
   row: { flexDirection: 'row', justifyContent: 'space-around' },
   metric: { alignItems: 'center' },
   metricValue: { fontWeight: '800', color: theme.colors.primary },
-  called: { color: theme.colors.primary, fontWeight: '800', textAlign: 'center' },
+  turnBox: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  turnBadge: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+  },
+  turnBadgeText: { color: '#FFFFFF', fontWeight: '900', fontSize: 22, letterSpacing: 2 },
+  turnSub: { color: theme.colors.primary, fontWeight: '700', textAlign: 'center' },
   status: { textAlign: 'center', fontWeight: '700', letterSpacing: 1 },
   empty: { textAlign: 'center', marginTop: spacing.xl, color: theme.colors.onSurfaceVariant },
   statusRow: { alignItems: 'flex-end' },

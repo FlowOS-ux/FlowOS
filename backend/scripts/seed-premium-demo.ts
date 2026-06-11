@@ -36,7 +36,14 @@ import {
 import { hashPassword } from '../src/lib/password.js';
 
 const URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/flowos';
-const ADMIN_EMAIL = 'sreelekhaac2427@gmail.com';
+// Admin credentials come from the environment — never hardcoded/committed.
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Set the ${name} env var before running seed:demo`);
+  return value;
+}
+const ADMIN_EMAIL = requireEnv('ADMIN_EMAIL');
+const ADMIN_PASSWORD = requireEnv('ADMIN_PASSWORD');
 
 // ---- helpers ----
 // Premium, people-free category interiors (curated Unsplash; all verified to load).
@@ -437,7 +444,7 @@ async function main(): Promise<void> {
     admin = await User.create({
       name: 'Platform Admin',
       email: ADMIN_EMAIL,
-      passwordHash: await hashPassword('12345678ct'),
+      passwordHash: await hashPassword(ADMIN_PASSWORD),
       role: 'PLATFORM_ADMIN',
       emailVerified: true,
     });
@@ -606,7 +613,7 @@ async function main(): Promise<void> {
   console.log(`  Entries    : ${entryCount}`);
   console.log(`  Reviews    : ${reviewCount}`);
   console.log(`  Analytics  : ${analyticsCount} events`);
-  console.log(`  Admin login: ${ADMIN_EMAIL} / 12345678ct`);
+  console.log(`  Admin login: ${ADMIN_EMAIL} (password: ADMIN_PASSWORD env var)`);
 
   await mongoose.disconnect();
 }

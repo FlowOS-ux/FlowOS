@@ -7,6 +7,7 @@
  */
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -26,6 +27,7 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ExploreScreen from '../screens/customer/ExploreScreen';
 import BusinessDetailsScreen from '../screens/customer/BusinessDetailsScreen';
 import ActivityScreen from '../screens/customer/ActivityScreen';
+import AIAssistantScreen from '../screens/customer/AIAssistantScreen';
 import BusinessesScreen from '../screens/business/BusinessesScreen';
 import CreateBusinessScreen from '../screens/business/CreateBusinessScreen';
 import BusinessSetupScreen from '../screens/business/BusinessSetupScreen';
@@ -36,6 +38,7 @@ import BusinessReviewScreen from '../screens/admin/BusinessReviewScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import ProfileScreen from '../screens/shared/ProfileScreen';
 import Splash from '../components/Splash';
+import ConnectionErrorScreen from '../components/ConnectionErrorScreen';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const CustomerStack = createNativeStackNavigator<CustomerStackParamList>();
@@ -70,6 +73,11 @@ function CustomerTabs() {
         name="Explore"
         component={ExploreScreen}
         options={{ tabBarIcon: tabIcon('compass-outline') }}
+      />
+      <CustomerTab.Screen
+        name="Assistant"
+        component={AIAssistantScreen}
+        options={{ title: 'Assistant', tabBarIcon: tabIcon('robot-happy-outline') }}
       />
       <CustomerTab.Screen
         name="Activity"
@@ -200,17 +208,23 @@ function AdminNavigator() {
 }
 
 export default function RootNavigator() {
-  const { user, initializing } = useAuth();
+  const { user, initializing, bootError, retryRestore } = useAuth();
 
   if (initializing) {
     return <Splash />;
+  }
+
+  // Saved session couldn't be restored because the backend was unreachable — show a
+  // recoverable connection screen (and keep retrying) instead of the login screen.
+  if (!user && bootError === 'network') {
+    return <ConnectionErrorScreen onRetry={retryRestore} />;
   }
 
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
   const isBusiness = user?.role === 'BUSINESS_OWNER' || user?.role === 'STAFF';
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {!user ? (
         <AuthNavigator />
       ) : isAdmin ? (

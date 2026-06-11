@@ -9,6 +9,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { businessApi } from '../../api/endpoints';
 import { apiErrorMessage } from '../../api/client';
+import { onRecovered } from '../../net/connectivity';
+import ErrorState from '../../components/ErrorState';
 import { businessImageUrl } from '../../lib/images';
 import { theme, spacing } from '../../theme';
 import type { Business } from '../../api/types';
@@ -60,6 +62,13 @@ export default function ExploreScreen() {
     return () => clearTimeout(t);
   }, [query, nearMe, coords, load]);
 
+  // Background recovery: when connectivity returns after an outage, refetch the
+  // list automatically — no manual pull-to-refresh / app refresh needed.
+  useEffect(
+    () => onRecovered(() => load(query, nearMe ? coords : null)),
+    [query, nearMe, coords, load],
+  );
+
   const toggleNearMe = useCallback(() => {
     if (nearMe) {
       setNearMe(false);
@@ -107,6 +116,8 @@ export default function ExploreScreen() {
       </View>
       {loading ? (
         <ActivityIndicator style={styles.loader} color={theme.colors.primary} />
+      ) : error && items.length === 0 ? (
+        <ErrorState message={error} onRetry={() => load(query, nearMe ? coords : null)} />
       ) : (
         <FlatList
           data={items}

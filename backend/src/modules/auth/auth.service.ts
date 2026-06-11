@@ -15,8 +15,8 @@ import {
   BadRequestError,
   EmailNotVerifiedError,
 } from '../../lib/errors';
-import { email as emailService } from '../../container';
-import { env, isProd } from '../../config/env';
+import { email as emailService, emailConfigured } from '../../container';
+import { env } from '../../config/env';
 import { logger } from '../../lib/logger';
 import type {
   RegisterDto,
@@ -38,7 +38,8 @@ interface AuthResult {
 interface RegisterResult {
   status: 'VERIFICATION_REQUIRED';
   email: string;
-  /** Demo only (non-production): the plaintext code, so testers can self-verify. */
+  /** Local-dev fallback only (no email provider configured): the plaintext code, so
+   *  the flow is testable without an inbox. Never set once a provider (e.g. Resend) is wired. */
   devCode?: string;
 }
 
@@ -50,6 +51,17 @@ function generateOtp(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, '0');
 }
 
+/** Branded HTML body for the verification email; plain text is sent as a fallback. */
+function verificationEmailHtml(otp: string): string {
+  return `
+  <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a1a">
+    <h2 style="margin:0 0 8px">Verify your email</h2>
+    <p style="margin:0 0 16px;color:#444">Welcome to FlowOS! Use the code below to activate your account.</p>
+    <div style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f2f4f7;border-radius:8px;padding:16px;text-align:center">${otp}</div>
+    <p style="margin:16px 0 0;color:#888;font-size:13px">This code expires in 10 minutes. If you didn't sign up for FlowOS, you can safely ignore this email.</p>
+  </div>`;
+}
+
 /** Issue a fresh verification OTP, persist its hash, email it, and return the code. */
 async function sendVerificationOtp(user: UserDoc): Promise<string> {
   const otp = generateOtp();
@@ -58,12 +70,19 @@ async function sendVerificationOtp(user: UserDoc): Promise<string> {
     verifyOtpExpires: new Date(Date.now() + OTP_TTL_MS),
     verifyOtpAttempts: 0,
   });
-  await emailService.send({
-    to: user.email,
-    subject: 'Your FlowOS verification code',
-    text: `Welcome to FlowOS! Your verification code is ${otp}. It expires in 10 minutes.`,
-  });
-  logger.info({ userId: user.id }, 'verification OTP sent');
+  try {
+    await emailService.send({
+      to: user.email,
+      subject: 'Your FlowOS verification code',
+      text: `Welcome to FlowOS! Your verification code is ${otp}. It expires in 10 minutes.`,
+      html: verificationEmailHtml(otp),
+    });
+    logger.info({ userId: user.id }, 'verification OTP sent');
+  } catch (err) {
+    // The OTP hash is already persisted — a provider hiccup must not fail
+    // registration/login; the user can recover via "Resend code".
+    logger.error({ err, userId: user.id }, 'verification email failed to send');
+  }
   return otp;
 }
 
@@ -107,8 +126,14 @@ export const authService = {
       phone: dto.phone,
     });
     const otp = await sendVerificationOtp(user);
-    // In non-production (demo/dev), return the code so testers can verify without email.
-    return { status: 'VERIFICATION_REQUIRED', email: user.email, ...(isProd ? {} : { devCode: otp }) };
+    // Only when NO email provider is configured (local dev, console transport) do we return
+    // the code, so the flow stays testable without an inbox. With a provider (e.g. Resend)
+    // it is delivered by email only and never exposed in the API response.
+    return {
+      status: 'VERIFICATION_REQUIRED',
+      email: user.email,
+      ...(emailConfigured ? {} : { devCode: otp }),
+    };
   },
 
   async login(dto: LoginDto, userAgent?: string): Promise<AuthResult> {
@@ -119,7 +144,7 @@ export const authService = {
     // Block unverified accounts, but (re)send a fresh code so the user can continue.
     if (!user.emailVerified) {
       const otp = await sendVerificationOtp(user);
-      throw new EmailNotVerifiedError(undefined, isProd ? undefined : { devCode: otp });
+      throw new EmailNotVerifiedError(undefined, emailConfigured ? undefined : { devCode: otp });
     }
     const tokens = await issueTokens(user.id as string, user.role, userAgent);
     return { user: toPublicUser(user), ...tokens };
@@ -160,7 +185,7 @@ export const authService = {
     const user = await usersRepository.findByEmailForVerification(dto.email);
     if (user && !user.emailVerified) {
       const otp = await sendVerificationOtp(user);
-      if (!isProd) return { devCode: otp };
+      if (!emailConfigured) return { devCode: otp };
     }
     return {};
   },
@@ -220,12 +245,18 @@ export const authService = {
     });
 
     const token = `${user.id}.${raw}`;
-    await emailService.send({
-      to: user.email,
-      subject: 'Reset your FlowOS password',
-      text: `Use this token to reset your password (valid 1 hour): ${token}`,
-    });
-    logger.info({ userId: user.id }, 'password reset requested');
+    try {
+      await emailService.send({
+        to: user.email,
+        subject: 'Reset your FlowOS password',
+        text: `Use this token to reset your password (valid 1 hour): ${token}`,
+      });
+      logger.info({ userId: user.id }, 'password reset requested');
+    } catch (err) {
+      // Never surface provider failures here — the endpoint must stay
+      // indistinguishable whether or not the account exists.
+      logger.error({ err, userId: user.id }, 'password reset email failed to send');
+    }
   },
 
   async resetPassword(dto: ResetPasswordDto): Promise<void> {

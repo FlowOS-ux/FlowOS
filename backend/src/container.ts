@@ -15,7 +15,12 @@ import { InAppNotificationService } from './services/notification/inapp.notifica
 import type { INotificationService } from './services/notification/notification.interface';
 
 import { SmtpEmailService } from './services/email/smtp.email';
+import { BrevoEmailService } from './services/email/brevo.email';
+import { GmailApiEmailService } from './services/email/gmail.email';
+import { ResendEmailService } from './services/email/resend.email';
+import { MailjetEmailService } from './services/email/mailjet.email';
 import type { IEmailService } from './services/email/email.interface';
+import { env } from './config/env';
 
 import { LocalStorageService } from './services/storage/local.storage';
 import type { IStorageService } from './services/storage/storage.interface';
@@ -27,7 +32,28 @@ import type { IAssistant } from './services/ai/assistant.interface';
 let realtime: IRealtimeService = new NoopRealtimeService();
 
 export const push = new FcmPushService();
-export const email: IEmailService = new SmtpEmailService();
+
+// Pick the email transport by configured credentials, returning both the instance and a
+// short label. The HTTP-based senders (Gmail API, Brevo, Resend) work where SMTP egress
+// is blocked (e.g. Railway); real SMTP is the local default; 'console' is the dev
+// fallback that only logs codes (never delivers). This is the SINGLE source of truth —
+// `emailProvider` and `emailConfigured` below both derive from it, so they can't drift.
+function selectEmailService(): { service: IEmailService; provider: string } {
+  if (env.GOOGLE_REFRESH_TOKEN) return { service: new GmailApiEmailService(), provider: 'gmail' };
+  if (env.BREVO_API_KEY) return { service: new BrevoEmailService(), provider: 'brevo' };
+  if (env.RESEND_API_KEY) return { service: new ResendEmailService(), provider: 'resend' };
+  if (env.MAILJET_API_KEY && env.MAILJET_SECRET_KEY)
+    return { service: new MailjetEmailService(), provider: 'mailjet' };
+  if (env.SMTP_HOST && env.SMTP_USER) return { service: new SmtpEmailService(), provider: 'smtp' };
+  return { service: new SmtpEmailService(), provider: 'console' };
+}
+const selectedEmail = selectEmailService();
+export const email: IEmailService = selectedEmail.service;
+/** Active transport label for diagnostics: gmail | brevo | resend | mailjet | smtp | console. */
+export const emailProvider: string = selectedEmail.provider;
+/** True when a real provider will actually deliver mail (i.e. NOT the console fallback).
+ *  When false, the auth flow exposes `devCode` so local dev stays testable without an inbox. */
+export const emailConfigured: boolean = emailProvider !== 'console';
 export const storage: IStorageService = new LocalStorageService();
 export const assistant: IAssistant = new GroqAssistant();
 
@@ -49,4 +75,6 @@ export function getRealtime(): IRealtimeService {
 /** Initialize async-capable services (e.g. FCM) at boot. */
 export async function initServices(): Promise<void> {
   await push.init();
+  // Probe SMTP and log whether real email delivery is active (non-fatal).
+  await email.verifyConnection?.();
 }

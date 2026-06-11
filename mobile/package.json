@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "web": "webpack serve --config webpack.config.js",
-    "web:build": "webpack --config webpack.config.js",
+    "web:build": "webpack --config webpack.config.js --mode production",
     "test": "jest",
     "typecheck": "tsc --noEmit"
   },

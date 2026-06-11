@@ -1,23 +1,60 @@
 # FlowOS — Render Blueprint (https://render.com).
 # In Render: New > Blueprint > connect this repo. Render reads this file and creates
-# the service. You only need to paste MONGODB_URI (from MongoDB Atlas) afterwards.
+# BOTH services:
+#   - flowos-backend : Node web service (API + Socket.IO)
+#   - flowos-web     : static site (React Native Web client)
+# After connecting, paste the values marked `sync: false` in the dashboard
+# (MONGODB_URI from Atlas; BREVO_API_KEY + EMAIL_FROM for real verification emails —
+# leave them blank to run in console/demo mode where the OTP is shown in-app).
 services:
   - type: web
     name: flowos-backend
     runtime: node
     rootDir: backend
     plan: free
-    buildCommand: npm install
-    startCommand: npx tsx src/server.ts
+    # Install WITH devDependencies and compile, then run plain node. (NODE_ENV=production
+    # is set as an env var, so a bare `npm install` would skip devDeps and the previous
+    # `npx tsx src/server.ts` start would re-download tsx on every cold start.)
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
     healthCheckPath: /api/v1/system/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: TRUST_PROXY
+        value: "1" # Render has ONE proxy hop in front of the app (Railway had 2)
       - key: CORS_ORIGIN
-        value: "*"
+        value: "*" # tighten to the flowos-web URL after the first deploy
       - key: JWT_SECRET
         generateValue: true # Render generates a secure random value
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: MONGODB_URI
-        sync: false # set this manually in the dashboard (your Atlas connection string)
+        sync: false # MongoDB Atlas connection string (set manually in the dashboard)
+      # Email — Gmail SMTP with an App Password (the verified local setup). Copy the
+      # SMTP_* values from backend/.env. Alternatively leave SMTP_* blank and set
+      # BREVO_API_KEY instead; blank everything = console/demo mode (OTP shown in-app).
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USER
+        sync: false # the Gmail address
+      - key: SMTP_PASS
+        sync: false # the 16-char App Password, WITHOUT spaces
+      - key: EMAIL_FROM
+        sync: false # e.g. "FlowOS <yourgmail@gmail.com>" — same Gmail address
+      - key: BREVO_API_KEY
+        sync: false # optional alternative (xkeysib-...); leave blank if using SMTP
+
+  # React Native Web client, served as a free static site.
+  - type: web
+    name: flowos-web
+    runtime: static
+    rootDir: mobile
+    buildCommand: npm ci && npm run web:build
+    staticPublishPath: dist-web
+    routes:
+      - type: rewrite # SPA fallback — client-side navigation handles all paths
+        source: /*
+        destination: /index.html

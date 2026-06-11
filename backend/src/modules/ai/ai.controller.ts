@@ -4,9 +4,16 @@
  */
 import type { Request, Response } from 'express';
 import { aiService } from './ai.service';
+import { recommendService } from './recommend.service';
 
 export async function chat(req: Request, res: Response): Promise<void> {
   const result = await aiService.chat(req.user!.id, req.body);
+  res.json(result);
+}
+
+/** Natural-language service discovery: ranked, joinable recommendations. */
+export async function recommend(req: Request, res: Response): Promise<void> {
+  const result = await recommendService.recommend(req.body);
   res.json(result);
 }
 

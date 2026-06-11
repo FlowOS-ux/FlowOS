@@ -15,7 +15,6 @@ export function notFoundHandler(req: Request, res: Response): void {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
   // Known, operational application errors.
   if (err instanceof AppError) {
@@ -37,6 +36,27 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   if (typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000) {
     res.status(409).json({
       error: { code: 'CONFLICT', message: 'A record with these details already exists' },
+    });
+    return;
+  }
+
+  // Database temporarily unavailable (connection dropped, primary stepped down,
+  // server-selection timed out). These are transient: respond 503 so the client's
+  // retry-with-backoff can recover instead of treating it as a hard failure.
+  const errName = (err as { name?: string } | null)?.name ?? '';
+  if (
+    errName === 'MongooseServerSelectionError' ||
+    errName === 'MongoServerSelectionError' ||
+    errName === 'MongoNetworkError' ||
+    errName === 'MongoNotConnectedError' ||
+    errName === 'MongoTimeoutError'
+  ) {
+    logger.warn({ err }, 'Database unavailable; returning 503');
+    res.status(503).json({
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Service temporarily unavailable, please try again',
+      },
     });
     return;
   }

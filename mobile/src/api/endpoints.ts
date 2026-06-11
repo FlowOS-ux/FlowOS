@@ -16,6 +16,7 @@ import type {
   AnalyticsSummary,
   Paginated,
   Role,
+  RecommendResponse,
 } from './types';
 
 export const authApi = {
@@ -141,6 +142,12 @@ export const entryApi = {
     api.post<{ entry: Entry }>(`/entries/${id}/complete`).then((r) => r.data.entry),
   noShow: (id: string) =>
     api.post<{ entry: Entry }>(`/entries/${id}/no-show`).then((r) => r.data.entry),
+};
+
+export const aiApi = {
+  /** Natural-language service discovery → ranked, joinable recommendations. */
+  recommend: (body: { message: string; lat?: number; lng?: number; limit?: number }) =>
+    api.post<RecommendResponse>('/ai/recommend', body).then((r) => r.data),
 };
 
 export const notificationApi = {

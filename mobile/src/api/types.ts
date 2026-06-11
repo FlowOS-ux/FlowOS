@@ -144,3 +144,36 @@ export interface Paginated<T> {
   page: number;
   limit: number;
 }
+
+/** AI Assistant: a single ranked, joinable service recommendation. */
+export interface Recommendation {
+  businessId: string;
+  name: string;
+  category: string;
+  address: string | null;
+  logoUrl: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+  /** Total people waiting across the business's OPEN queues. */
+  queueSize: number;
+  estimatedWaitSec: number;
+  /** Human label, e.g. "~9 min", "No wait", "Closed". */
+  estimatedWaitText: string;
+  /** Has at least one OPEN (joinable) queue right now. */
+  isOpen: boolean;
+  /** Recommendation score in [0,1]. */
+  score: number;
+  /** Why this was recommended (e.g. "Highly rated (4.6★)", "Short wait"). */
+  reasons: string[];
+  /** The OPEN queue with the shortest wait — used to join directly. */
+  topQueueId: string | null;
+}
+
+export type RecIntent = 'best_rated' | 'shortest_wait' | 'available_now' | 'nearby' | 'general';
+
+export interface RecommendResponse {
+  /** Natural-language summary from the assistant. */
+  reply: string;
+  query: { category: string | null; intent: RecIntent };
+  recommendations: Recommendation[];
+}

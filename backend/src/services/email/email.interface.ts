@@ -11,4 +11,6 @@ export interface EmailMessage {
 
 export interface IEmailService {
   send(message: EmailMessage): Promise<void>;
+  /** Optional: probe SMTP connectivity at boot and log the active mode (real vs console). */
+  verifyConnection?(): Promise<void>;
 }

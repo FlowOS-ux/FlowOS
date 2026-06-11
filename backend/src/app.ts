@@ -15,6 +15,14 @@ import apiV1 from './api/v1';
 export function createApp(): Application {
   const app = express();
 
+  // Trust exactly TRUST_PROXY reverse-proxy hops (Render = 1, Railway = 2) so
+  // Express resolves req.ip to the real CLIENT IP and express-rate-limit keys
+  // per device instead of bucketing everyone under the platform's edge IP.
+  // A fixed count (not the permissive `true`) keeps spoof protection: a client
+  // can't prepend its own X-Forwarded-For to dodge the limiter, since only the
+  // trusted hops nearest the app are honoured.
+  app.set('trust proxy', env.TRUST_PROXY);
+
   app.use(helmet());
   app.use(
     cors({

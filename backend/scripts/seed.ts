@@ -50,13 +50,20 @@ async function seed(): Promise<void> {
 
   await Category.insertMany(CATEGORIES);
 
+  // Admin credentials come from the environment — never hardcoded/committed.
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+    throw new Error('Set ADMIN_EMAIL and ADMIN_PASSWORD env vars before running the seed');
+  }
+
   const password = await hashPassword('password123');
-  const adminPassword = await hashPassword('12345678ct');
+  const adminPassword = await hashPassword(ADMIN_PASSWORD);
 
   // Seeded accounts are pre-verified so they can log in without the email OTP flow.
   // The single admin is the only PLATFORM_ADMIN (admin self-registration is disabled).
   const [admin, owner, staff, customer] = await User.create([
-    { name: 'Platform Admin', email: 'sreelekhaac2427@gmail.com', passwordHash: adminPassword, role: 'PLATFORM_ADMIN', emailVerified: true },
+    { name: 'Platform Admin', email: ADMIN_EMAIL, passwordHash: adminPassword, role: 'PLATFORM_ADMIN', emailVerified: true },
     { name: 'Olivia Owner', email: 'owner@flowos.test', passwordHash: password, role: 'BUSINESS_OWNER', emailVerified: true },
     { name: 'Sam Staff', email: 'staff@flowos.test', passwordHash: password, role: 'STAFF', emailVerified: true },
     { name: 'Carl Customer', email: 'customer@flowos.test', passwordHash: password, role: 'CUSTOMER', emailVerified: true },
@@ -120,7 +127,7 @@ async function seed(): Promise<void> {
   });
 
   logger.info('Seed complete:');
-  logger.info('  Admin     sreelekhaac2427@gmail.com / 12345678ct');
+  logger.info(`  Admin     ${ADMIN_EMAIL} (password: ADMIN_PASSWORD env var)`);
   logger.info('  Owner     owner@flowos.test / password123');
   logger.info('  Staff     staff@flowos.test / password123');
   logger.info('  Customer  customer@flowos.test / password123');

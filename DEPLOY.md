@@ -1,76 +1,79 @@
-# FlowOS — Deploy the backend to the cloud (works on ANY mobile network)
+# FlowOS — Deploy to Render (free tier)
 
-Your JioFiber network blocks Cloudflare tunnels, so the "any network" demo needs the
-backend on a real host with a permanent HTTPS URL. This takes ~15 minutes and is free.
-Recommended: **MongoDB Atlas** (database) + **Render** (server). Steps below.
+One Render **Blueprint** deploys both services from `render.yaml`:
 
-When you finish, send me the Render URL and I'll bake it into the APK + rebuild.
+- **flowos-backend** — the API + Socket.IO (Node web service, compiled with `tsc`)
+- **flowos-web** — the React Native Web client (free static site)
+
+Total time: ~20 minutes. Everything below is free.
 
 ---
 
-## 1. Database — MongoDB Atlas (free)
+## 1. Database — MongoDB Atlas (free M0)
+
 1. Sign up at <https://www.mongodb.com/cloud/atlas/register>.
 2. Create a **free M0 cluster** (any provider/region).
-3. **Database Access** → Add a database user (username + password). Save them.
+3. **Database Access** → add a database user (username + password). Save them.
 4. **Network Access** → Add IP → **Allow access from anywhere** (`0.0.0.0/0`).
-5. **Connect** → **Drivers** → copy the connection string. It looks like:
-   ```
-   mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
-   ```
-   Insert the DB name `flowos` before the `?`:
+5. **Connect → Drivers** → copy the connection string and insert the DB name
+   `flowos` before the `?`:
    ```
    mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/flowos?retryWrites=true&w=majority
    ```
    This is your **`MONGODB_URI`**.
 
-## 2. Get the code on GitHub
-The code is committed locally but not pushed (the repo doesn't exist yet on GitHub).
-1. Create a new repo on GitHub (e.g. `FlowOS`), empty, under your account.
-2. Tell me the repo name and I'll push all commits for you (or run:
-   `git push -u origin HEAD` once the repo exists).
+## 2. Email — Brevo (free, 300 emails/day)
 
-## 3. Deploy on Render (free)
-1. Sign up at <https://render.com> and connect your GitHub.
-2. **New ▸ Blueprint** → pick the `FlowOS` repo. Render reads `render.yaml` and
-   sets up `flowos-backend` automatically (build `npm install`, start `npx tsx src/server.ts`).
-3. When prompted, paste **`MONGODB_URI`** (from step 1). `JWT_SECRET` /
-   `JWT_REFRESH_SECRET` are generated automatically.
-4. **Apply / Deploy**. First deploy takes ~3–5 min. When it's live you'll get a URL like:
+Real verification/reset emails need an HTTP email provider (Render restricts SMTP).
+
+1. Sign up at <https://www.brevo.com> and verify a **sender** (your own email works).
+2. **Settings → SMTP & API → API Keys** → create a v3 API key (`xkeysib-...`).
+3. You'll paste it as **`BREVO_API_KEY`** in step 4, with **`EMAIL_FROM`** set to the
+   verified sender, e.g. `FlowOS <you@example.com>`.
+
+> Skip this step to run in **demo mode**: the verification code is then shown
+> in-app instead of emailed — signup still works end to end.
+
+## 3. Push the code to GitHub
+
+Commit and push this repo (Render deploys from GitHub).
+
+## 4. Deploy on Render
+
+1. Sign up at <https://render.com> and connect GitHub.
+2. **New ▸ Blueprint** → pick this repo. Render reads `render.yaml` and creates
+   `flowos-backend` and `flowos-web`.
+3. When prompted, paste:
+   - **`MONGODB_URI`** (step 1)
+   - **`BREVO_API_KEY`** + **`EMAIL_FROM`** (step 2, or leave blank for demo mode)
+   - `JWT_SECRET` / `JWT_REFRESH_SECRET` are generated automatically.
+4. **Apply**. First deploy takes ~5 min. Verify:
    ```
-   https://flowos-backend-xxxx.onrender.com
+   https://flowos-backend.onrender.com/api/v1/system/health
    ```
-   Check it works: open `https://flowos-backend-xxxx.onrender.com/api/v1/system/health`
    → should show `{"status":"ok","db":"connected",...}`.
 
-   > Render's free tier sleeps after ~15 min idle; the first request then takes
-   > ~30–60 s to wake. Fine for demos. Upgrade or use Railway/Fly to avoid sleeping.
+> If Render gave the backend a different URL (name taken → suffix added), update
+> `PUBLIC_BASE_URL` in `mobile/src/config.ts`, push, and let `flowos-web` rebuild.
+> Optionally tighten `CORS_ORIGIN` on flowos-backend to the flowos-web URL.
 
-## 4. Seed the cloud database (the 8 Hyderabad demo businesses + admin)
-From your laptop (general internet works; only Cloudflare tunnels are blocked):
-```bash
+## 5. Seed demo data (optional)
+
+From your laptop, with your own admin credentials (they are **not** stored in the repo):
+
+```powershell
 cd backend
-# PowerShell:
-$env:MONGODB_URI="<your atlas URI from step 1>"; npm run seed:demo
-# git-bash:
-MONGODB_URI="<your atlas URI from step 1>" npm run seed:demo
+$env:MONGODB_URI = "<your atlas URI>"
+$env:ADMIN_EMAIL = "<your admin email>"
+$env:ADMIN_PASSWORD = "<a strong password>"
+npm run seed:demo
 ```
-This loads the 8 APPROVED businesses, queues, reviews, analytics, and the admin
-account `sreelekhaac2427@gmail.com / 12345678ct` into the cloud DB.
 
-## 5. Send me the URL
-Give me the Render URL (`https://flowos-backend-xxxx.onrender.com`). I'll:
-- set it as `PUBLIC_BASE_URL` in `mobile/src/config.ts`,
-- rebuild the release APK,
-- copy it to your Desktop.
+## 6. Share with friends
 
-The new APK then works on **any phone on any network** — no laptop, no tunnel.
+- **Web:** send them `https://flowos-web.onrender.com`.
+- **Android:** rebuild the release APK (it now points at the Render backend).
 
----
-
-### Alternatives (no GitHub needed)
-- **Railway** (<https://railway.app>): `npm i -g @railway/cli` → `railway login` →
-  from `backend/`: `railway init` → `railway up` → `railway domain`. Has a built-in
-  MongoDB plugin (skip Atlas). Tell me and I can drive most of this once you've logged in.
-- **Fly.io**: `flyctl launch` + `flyctl deploy --remote-only` (uses the included `Dockerfile`).
-
-A `Dockerfile` is included in `backend/` so any container host works too.
+> Free-tier note: the backend sleeps after ~15 min idle; the first request takes
+> 30–60 s to wake (the app waits it out automatically). A free UptimeRobot monitor
+> pinging the health URL every 5 min keeps it warm during demo sessions.

@@ -10,6 +10,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   API_PREFIX: z.string().default('/api/v1'),
   CORS_ORIGIN: z.string().default('*'),
+  // Number of reverse-proxy hops in front of the app (Render = 1, Railway = 2).
+  // Express uses this to resolve the real client IP for per-device rate limiting.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(1),
 
   // Database
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
@@ -20,7 +23,16 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16, 'JWT_REFRESH_SECRET must be at least 16 characters'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
 
-  // Email (optional in dev — falls back to console transport)
+  // Email (optional in dev — falls back to console transport).
+  // Precedence: Gmail API (OAuth2) > Brevo HTTP API > SMTP > console. The HTTP-based
+  // senders work on hosts that block outbound SMTP (e.g. Railway).
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REFRESH_TOKEN: z.string().optional(),
+  BREVO_API_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  MAILJET_API_KEY: z.string().optional(),
+  MAILJET_SECRET_KEY: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
@@ -41,9 +53,7 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  // eslint-disable-next-line no-console
   console.error('Invalid environment configuration:');
-  // eslint-disable-next-line no-console
   console.error(z.treeifyError(parsed.error));
   process.exit(1);
 }
